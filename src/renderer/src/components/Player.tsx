@@ -15,7 +15,8 @@ interface Props {
   onExternal(): void
   onProgress?(pos: number, dur: number): void
   engine: 'auto' | 'hls' | 'ts'
-  buffer: 'low' | 'balanced' | 'stable'
+  bufferSec: number
+  prebufferSec: number
   recording: boolean
   onRecord?(): void
 }
@@ -45,6 +46,8 @@ export default function Player(props: Props) {
   const propsRef = useRef(props)
   propsRef.current = props
   const lastSave = useRef(0)
+  const holdRef = useRef(false)
+  const holdSince = useRef(0)
 
   const [status, setStatus] = useState<Status>('loading')
   const [msg, setMsg] = useState('')
@@ -64,6 +67,7 @@ export default function Player(props: Props) {
   const idleTimer = useRef(0)
 
   const teardown = () => {
+    holdRef.current = false
     hlsRef.current?.destroy(); hlsRef.current = null
     if (tsRef.current) { try { tsRef.current.destroy() } catch { /* yok say */ } tsRef.current = null }
     const v = videoRef.current
@@ -106,12 +110,12 @@ export default function Player(props: Props) {
     modeRef.current = mode
 
     if (mode === 'hls') {
-      const B = propsRef.current.buffer
-      const cfg =
-        B === 'low' ? { maxBufferLength: 20, liveSyncDurationCount: 3 }
-        : B === 'balanced' ? { maxBufferLength: 40, maxMaxBufferLength: 90, liveSyncDurationCount: 4 }
-        : { maxBufferLength: 60, maxMaxBufferLength: 120, liveSyncDurationCount: 6, backBufferLength: 30,
-            fragLoadingMaxRetry: 6, levelLoadingMaxRetry: 6, manifestLoadingMaxRetry: 6 }
+      const sec = Math.min(120, Math.max(5, propsRef.current.bufferSec))
+      const cfg = {
+        maxBufferLength: sec, maxMaxBufferLength: sec * 2,
+        liveSyncDurationCount: Math.min(10, Math.max(3, Math.round(sec / 6))),
+        backBufferLength: 30, fragLoadingMaxRetry: 6, levelLoadingMaxRetry: 6, manifestLoadingMaxRetry: 6
+      }
       const hls = new Hls({ enableWorker: true, lowLatencyMode: false, ...cfg })
       hlsRef.current = hls
       hls.on(Hls.Events.MANIFEST_PARSED, (_e, d) => {
@@ -134,9 +138,9 @@ export default function Player(props: Props) {
         { type: 'mpegts', isLive: live, url },
         {
           enableWorker: true,
-          liveBufferLatencyChasing: propsRef.current.buffer === 'low',
-          enableStashBuffer: propsRef.current.buffer !== 'low',
-          stashInitialSize: propsRef.current.buffer === 'stable' ? 1024 * 1024 : 384 * 1024,
+          liveBufferLatencyChasing: false,
+          enableStashBuffer: true,
+          stashInitialSize: 1024 * 1024,
           autoCleanupSourceBuffer: true,
           autoCleanupMaxBackwardDuration: 60,
           autoCleanupMinBackwardDuration: 30,
@@ -147,7 +151,13 @@ export default function Player(props: Props) {
       p.on(mpegts.Events.ERROR, () => scheduleRetry())
       p.attachMediaElement(v)
       p.load()
-      Promise.resolve(p.play()).catch(() => {})
+      // Oynatmadan önce tampon biriktir (takılmaları azaltır)
+      if (live && propsRef.current.prebufferSec > 0) {
+        holdRef.current = true
+        holdSince.current = Date.now()
+      } else {
+        Promise.resolve(p.play()).catch(() => {})
+      }
     } else {
       v.src = url
       v.play().catch(() => {})
@@ -193,6 +203,28 @@ export default function Player(props: Props) {
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, url])
+
+  // MPEG-TS: tampon hedefe ulaşınca oynat; takılma sonrası yeniden biriktir
+  useEffect(() => {
+    const ahead = (v: HTMLVideoElement) => {
+      const b = v.buffered
+      if (!b.length) return 0
+      const s0 = b.start(b.length - 1), e0 = b.end(b.length - 1), cur = v.currentTime
+      return e0 - (cur >= s0 && cur <= e0 ? cur : s0)
+    }
+    const id = window.setInterval(() => {
+      const v = videoRef.current
+      if (!v || !holdRef.current) return
+      const want = propsRef.current.prebufferSec
+      const waited = (Date.now() - holdSince.current) / 1000
+      if (ahead(v) >= want || waited > want * 2 + 8) {
+        holdRef.current = false
+        const p = tsRef.current
+        Promise.resolve(p ? p.play() : v.play()).catch(() => {})
+      }
+    }, 400)
+    return () => clearInterval(id)
+  }, [url])
 
   const toggleFs = () => {
     if (document.fullscreenElement) document.exitFullscreen()
@@ -248,9 +280,17 @@ export default function Player(props: Props) {
         className="w-full h-full object-contain"
         onClick={togglePlay}
         onPlaying={() => { setStatus('playing'); setMsg(''); retry.current = 0 }}
-        onWaiting={() => setStatus((s) => (s === 'error' ? s : 'loading'))}
+        onWaiting={() => {
+          setStatus((s) => (s === 'error' ? s : 'loading'))
+          const v = videoRef.current
+          if (v && live && modeRef.current === 'ts' && propsRef.current.prebufferSec > 0 && !holdRef.current && !v.paused) {
+            holdRef.current = true
+            holdSince.current = Date.now()
+            v.pause()
+          }
+        }}
         onPlay={() => setPaused(false)}
-        onPause={() => setPaused(true)}
+        onPause={() => { if (!holdRef.current) setPaused(true) }}
         onVolumeChange={(e) => { setVolume(e.currentTarget.volume); setMuted(e.currentTarget.muted) }}
         onLoadedMetadata={(e) => {
           setDuration(e.currentTarget.duration)

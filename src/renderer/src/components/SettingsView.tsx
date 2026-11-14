@@ -8,10 +8,13 @@ export default function SettingsView({ onEdit }: { onEdit(p: Profile): void }) {
   const { saveSettings, deleteProfile } = useStore.getState()
   const [ua, setUa] = useState(settings.userAgent)
   const [ext, setExt] = useState(settings.externalPlayer)
+  const [args, setArgs] = useState(settings.externalArgs)
+  const [buf, setBuf] = useState(settings.bufferSec)
+  const [pre, setPre] = useState(settings.prebufferSec)
   const [msg, setMsg] = useState('')
   const [needRestart, setNeedRestart] = useState(false)
 
-  useEffect(() => { setUa(settings.userAgent); setExt(settings.externalPlayer) }, [settings])
+  useEffect(() => { setUa(settings.userAgent); setExt(settings.externalPlayer); setArgs(settings.externalArgs); setBuf(settings.bufferSec); setPre(settings.prebufferSec) }, [settings])
   const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 2500) }
   const patch = async (s: Partial<Settings>, m = 'Kaydedildi') => { await saveSettings(s); flash(m) }
 
@@ -27,7 +30,7 @@ export default function SettingsView({ onEdit }: { onEdit(p: Profile): void }) {
             <div key={p.id} className="flex items-center gap-3 p-3 rounded-lg bg-panel border border-line">
               <div className="flex-1 min-w-0">
                 <div className="text-sm truncate">{p.name}</div>
-                <div className="text-xs text-slate-500">{p.type === 'xtream' ? `Xtream · ${p.server}` : p.path ? 'M3U · yerel dosya' : 'M3U · URL'}</div>
+                <div className="text-xs text-slate-500">{p.type === 'xtream' ? `Xtream · ${p.server}` : p.type === 'stalker' ? `Stalker · ${p.server}` : p.path ? 'M3U · yerel dosya' : 'M3U · URL'}</div>
               </div>
               <button className="btn" onClick={() => onEdit(p)}>Düzenle</button>
               <button className="btn" onClick={() => { if (confirm(`"${p.name}" silinsin mi?`)) deleteProfile(p.id) }}>Sil</button>
@@ -62,38 +65,65 @@ export default function SettingsView({ onEdit }: { onEdit(p: Profile): void }) {
               <button className="btn" onClick={() => window.api.relaunch()}>Şimdi yeniden başlat</button>
             </div>
           )}
+          <label className="text-sm text-slate-400 block pt-2">Oynatıcı</label>
+          <select className="field max-w-xs" value={settings.playerMode}
+            onChange={(e) => patch({ playerMode: e.target.value as Settings['playerMode'] })}>
+            <option value="internal">Dahili oynatıcı</option>
+            <option value="external">Harici oynatıcı (mpv / VLC)</option>
+          </select>
           <label className="text-sm text-slate-400 block pt-2">Harici oynatıcı yolu (mpv.exe / vlc.exe)</label>
           <div className="flex gap-2">
             <input className="field" placeholder="C:\Program Files\VideoLAN\VLC\vlc.exe" value={ext} onChange={(e) => setExt(e.target.value)} />
             <button className="btn-primary" onClick={() => patch({ externalPlayer: ext.trim() })}>Kaydet</button>
           </div>
+          <label className="text-sm text-slate-400 block pt-2">Harici oynatıcı ek parametreleri</label>
+          <div className="flex gap-2">
+            <input className="field" placeholder="mpv için örn: --cache=yes --demuxer-max-bytes=150MiB" value={args} onChange={(e) => setArgs(e.target.value)} />
+            <button className="btn-primary" onClick={() => patch({ externalArgs: args.trim() })}>Kaydet</button>
+          </div>
+          {settings.playerMode === 'external' && !settings.externalPlayer && (
+            <div className="text-xs text-amber-400">Harici mod için oynatıcı yolunu girin; aksi halde dahili oynatıcı kullanılır.</div>
+          )}
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-medium">Akış kalitesi (donma/takılma)</h2>
-          <label className="text-sm text-slate-400 block">Tampon</label>
-          <select className="field max-w-xs" value={settings.buffer} onChange={(e) => patch({ buffer: e.target.value as Settings['buffer'] })}>
-            <option value="stable">Kararlı (önerilen, daha az takılma)</option>
-            <option value="balanced">Dengeli</option>
-            <option value="low">Düşük gecikme (daha çok takılabilir)</option>
-          </select>
+          <h2 className="font-medium">Akış tamponu (donma/takılma)</h2>
+          <div className="flex items-center gap-3 text-sm">
+            <label className="w-64 text-slate-400">İleri tampon hedefi (sn, 5–120)</label>
+            <input className="field !w-24" type="number" min={5} max={120} value={buf}
+              onChange={(e) => setBuf(Number(e.target.value))}
+              onBlur={() => patch({ bufferSec: Math.min(120, Math.max(5, Math.round(buf) || 30)) })} />
+          </div>
+          <div className="flex items-center gap-3 text-sm">
+            <label className="w-64 text-slate-400">Başlamadan/takılınca biriktirme (sn, 0–15)</label>
+            <input className="field !w-24" type="number" min={0} max={15} value={pre}
+              onChange={(e) => setPre(Number(e.target.value))}
+              onBlur={() => patch({ prebufferSec: Math.min(15, Math.max(0, Math.round(pre) || 0)) })} />
+          </div>
           <label className="text-sm text-slate-400 block pt-2">Uzantısız canlı adreslerde motor</label>
           <select className="field max-w-xs" value={settings.engine} onChange={(e) => patch({ engine: e.target.value as Settings['engine'] })}>
             <option value="auto">Otomatik</option>
             <option value="ts">MPEG-TS</option>
             <option value="hls">HLS</option>
           </select>
-          <p className="text-xs text-slate-500">Bir kanal takılıyorsa önce Tamponu "Kararlı" yapın, sonra Xtream biçimini .ts / .m3u8 arasında değiştirip deneyin.</p>
+          <p className="text-xs text-slate-500">
+            Donma sürüyorsa önce biriktirmeyi 6–10 sn, ileri tamponu 40–60 sn yapın; sonra Xtream biçimini .ts / .m3u8 arasında değiştirin.
+            Biriktirme yalnızca MPEG-TS yayınlarda çalışır; başlangıcı ve takılma sonrası devamı birkaç saniye geciktirir.
+          </p>
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-medium">Kayıt</h2>
-          <label className="text-sm text-slate-400 block">Kayıt klasörü</label>
-          <div className="flex gap-2">
-            <input className="field" readOnly placeholder="Videolar\IPTV Kayitlari (varsayılan)" value={settings.recordDir} />
-            <button className="btn" onClick={async () => { const d = await window.api.pickFolder(); if (d) patch({ recordDir: d }) }}>Seç…</button>
-            {settings.recordDir && <button className="btn" onClick={() => patch({ recordDir: '' })}>Varsayılan</button>}
-          </div>
+          <h2 className="font-medium">Kayıt ve indirme klasörleri</h2>
+          {([['recordDir', 'Canlı kayıtlar', 'Videolar\\IPTV Kayitlari'], ['downloadDir', 'Film/dizi indirmeleri', 'Videolar\\IPTV Indirilenler']] as const).map(([key, label, ph]) => (
+            <div key={key}>
+              <label className="text-sm text-slate-400 block">{label}</label>
+              <div className="flex gap-2">
+                <input className="field" readOnly placeholder={`${ph} (varsayılan)`} value={settings[key]} />
+                <button className="btn" onClick={async () => { const d = await window.api.pickFolder(); if (d) patch({ [key]: d } as Partial<Settings>) }}>Seç…</button>
+                {settings[key] && <button className="btn" onClick={() => patch({ [key]: '' } as Partial<Settings>)}>Varsayılan</button>}
+              </div>
+            </div>
+          ))}
         </section>
 
         <section className="space-y-2">

@@ -26,6 +26,7 @@ const api: Api = {
   openExternal: call('player:external') as Api['openExternal'],
   relaunch: call('app:relaunch') as Api['relaunch'],
   startRecording: call('record:start') as Api['startRecording'],
+  startDownload: call('download:start') as Api['startDownload'],
   stopRecording: call('record:stop') as Api['stopRecording'],
   listRecordings: call('record:list') as Api['listRecordings'],
   openRecording: call('record:open') as Api['openRecording'],

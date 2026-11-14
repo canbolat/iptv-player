@@ -4,7 +4,7 @@ import { useStore } from '../store'
 
 export default function ProfileDialog({ profile, onClose }: { profile?: Profile; onClose(): void }) {
   const saveProfile = useStore((s) => s.saveProfile)
-  const [type, setType] = useState<'m3u' | 'xtream'>(profile?.type ?? 'm3u')
+  const [type, setType] = useState<'m3u' | 'xtream' | 'stalker'>(profile?.type ?? 'm3u')
   const [name, setName] = useState(profile?.name ?? '')
   const [url, setUrl] = useState(profile?.url ?? '')
   const [path, setPath] = useState(profile?.path ?? '')
@@ -12,6 +12,7 @@ export default function ProfileDialog({ profile, onClose }: { profile?: Profile;
   const [server, setServer] = useState(profile?.server ?? '')
   const [username, setUsername] = useState(profile?.username ?? '')
   const [password, setPassword] = useState('')
+  const [mac, setMac] = useState(profile?.mac ?? '')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -25,7 +26,8 @@ export default function ProfileDialog({ profile, onClose }: { profile?: Profile;
     if (!name.trim()) return setErr('Profil adı gerekli.')
     const input: ProfileInput = {
       id: profile?.id, name, type, epgUrl,
-      ...(type === 'm3u' ? { url: path ? undefined : url, path: path || undefined } : { server, username, password })
+      ...(type === 'm3u' ? { url: path ? undefined : url, path: path || undefined }
+        : type === 'xtream' ? { server, username, password } : { server, mac })
     }
     setBusy(true)
     try {
@@ -42,10 +44,10 @@ export default function ProfileDialog({ profile, onClose }: { profile?: Profile;
         <h2 className="text-lg font-semibold">{profile ? 'Profili düzenle' : 'Yeni profil'}</h2>
 
         <div className="flex gap-2">
-          {(['m3u', 'xtream'] as const).map((t) => (
+          {(['m3u', 'xtream', 'stalker'] as const).map((t) => (
             <button key={t} onClick={() => setType(t)} disabled={!!profile}
               className={`flex-1 py-2 rounded-md text-sm border ${type === t ? 'border-accent bg-accent/20' : 'border-line bg-bg'} disabled:opacity-60`}>
-              {t === 'm3u' ? 'M3U / M3U8' : 'Xtream Codes'}
+              {t === 'm3u' ? 'M3U / M3U8' : t === 'xtream' ? 'Xtream Codes' : 'Stalker (MAC)'}
             </button>
           ))}
         </div>
@@ -61,6 +63,12 @@ export default function ProfileDialog({ profile, onClose }: { profile?: Profile;
               <span className="truncate flex-1">{path || 'veya yerel .m3u/.m3u8 dosyası'}</span>
               {path && <button className="btn" onClick={() => setPath('')}>Temizle</button>}
             </div>
+          </>
+        ) : type === 'stalker' ? (
+          <>
+            <input className="field" placeholder="Portal URL (örn. http://portal.example:8080/c/)" value={server} onChange={(e) => setServer(e.target.value)} />
+            <input className="field" placeholder="MAC adresi (00:1A:79:XX:XX:XX)" value={mac} onChange={(e) => setMac(e.target.value)} />
+            <p className="text-xs text-slate-500">Canlı TV desteklenir; film ve dizi deneyseldir. MAC adresi sağlayıcınızda kayıtlı olmalıdır.</p>
           </>
         ) : (
           <>

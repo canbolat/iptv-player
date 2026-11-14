@@ -25,5 +25,5 @@ export async function fetchJson<T = unknown>(url: string): Promise<T> {
 
 /** URL'lerdeki kimlik bilgilerini günlüklerde maskeler. */
 export function maskUrl(u: string): string {
-  return u.replace(/(\/(?:live|movie|series)\/)[^/]+\/[^/]+\//, '$1***/***/').replace(/(password=)[^&]+/i, '$1***')
+  return u.replace(/(\/(?:live|movie|series)\/)[^/]+\/[^/]+\//, '$1***/***/').replace(/(password=)[^&]+/i, '$1***').replace(/((?:mac|play_token|token)=)[^&]+/gi, '$1***')
 }

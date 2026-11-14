@@ -1,6 +1,6 @@
 {
   "name": "iptv-player",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Electron + React IPTV oynatıcı",
   "main": "./out/main/index.js",
   "author": "IPTV Player",

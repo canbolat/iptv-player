@@ -7,6 +7,7 @@ import GridView from './components/GridView'
 import LiveView from './components/LiveView'
 import Player from './components/Player'
 import ProfileDialog from './components/ProfileDialog'
+import RecordDialog from './components/RecordDialog'
 import RecordingsView from './components/RecordingsView'
 import SettingsView from './components/SettingsView'
 
@@ -19,12 +20,14 @@ const NAV: { tab: Tab; label: string; icon: string }[] = [
   { tab: 'series', label: 'Diziler', icon: '🎞️' },
   { tab: 'continue', label: 'Devam Et', icon: '⏯️' },
   { tab: 'recordings', label: 'Kayıtlar', icon: '⏺️' },
+  { tab: 'downloads', label: 'İndirilenler', icon: '⬇️' },
   { tab: 'settings', label: 'Ayarlar', icon: '⚙️' }
 ]
 
 export default function App() {
   const s = useStore()
   const [dialog, setDialog] = useState<{ profile?: Profile } | null>(null)
+  const [recDialog, setRecDialog] = useState(false)
 
   useEffect(() => { s.init() }, [])
   useEffect(() => {
@@ -34,6 +37,8 @@ export default function App() {
   }, [])
 
   const profile = s.profiles.find((p) => p.id === s.activeId)
+  const activeRec = s.recordings.filter((r) => r.type === 'record' && r.status === 'recording').length
+  const activeDl = s.recordings.filter((r) => r.type === 'download' && (r.status === 'recording' || r.status === 'queued')).length
   const p = s.playing
   const live = p?.target.kind === 'live'
   const showPlayer = !!p && (s.mini || p.overlay || (live && s.tab === 'live'))
@@ -70,6 +75,20 @@ export default function App() {
             </button>
           ))}
         </nav>
+        {activeRec + activeDl > 0 && (
+          <div className="mx-2 mb-2 p-2 rounded-md bg-red-600/15 border border-red-600/40 text-xs space-y-1">
+            {activeRec > 0 && (
+              <button className="w-full text-left text-red-300 hover:text-red-200" onClick={() => s.setTab('recordings')}>
+                <span className="animate-pulse">●</span> {activeRec} kayıt sürüyor
+              </button>
+            )}
+            {activeDl > 0 && (
+              <button className="w-full text-left text-sky-300 hover:text-sky-200" onClick={() => s.setTab('downloads')}>
+                ⬇ {activeDl} indirme sürüyor
+              </button>
+            )}
+          </div>
+        )}
         <div className="p-3 text-[11px] text-slate-600">Boşluk: oynat · F: tam ekran · M: sessiz · ↑↓: kanal</div>
       </aside>
 
@@ -95,7 +114,8 @@ export default function App() {
             {s.tab === 'vod' && <GridView kind="vod" />}
             {s.tab === 'series' && <GridView kind="series" />}
             {s.tab === 'continue' && <ContinueView />}
-            {s.tab === 'recordings' && <RecordingsView />}
+            {s.tab === 'recordings' && <RecordingsView type="record" />}
+            {s.tab === 'downloads' && <RecordingsView type="download" />}
             {s.tab === 'settings' && <SettingsView onEdit={(pr) => setDialog({ profile: pr })} />}
           </>
         )}
@@ -118,13 +138,18 @@ export default function App() {
             onExternal={external}
             onProgress={(pos, dur) => s.saveProgress(pos, dur)}
             engine={s.settings.engine}
-            buffer={s.settings.buffer}
-            recording={!!s.rec && s.rec.url === p.url && s.recordings.find((r) => r.id === s.rec!.id)?.status === 'recording'}
-            onRecord={live ? () => s.toggleRecord() : undefined}
+            bufferSec={s.settings.bufferSec}
+            prebufferSec={s.settings.prebufferSec}
+            recording={s.isRecording(p.url)}
+            onRecord={live ? () => (s.isRecording(p.url) ? s.stopRecord() : setRecDialog(true)) : undefined}
           />
         </div>
       )}
 
+      {recDialog && p && (
+        <RecordDialog title={p.target.title} onClose={() => setRecDialog(false)}
+          onStart={(m) => { setRecDialog(false); s.startRecord(m) }} />
+      )}
       {dialog && <ProfileDialog profile={dialog.profile} onClose={() => setDialog(null)} />}
     </div>
   )

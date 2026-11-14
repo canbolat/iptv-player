@@ -12,8 +12,11 @@ import { fetchText } from './net'
 import { loadXtream, resolveStreamUrl, xtreamDetail, xtreamEpgUrl } from './xtream'
 import { clearEpgCache, loadEpg, nowNext } from './epg'
 import {
-  findRecording, forgetRecording, listRecordings, recordDir, startRecording, stopAllRecordings, stopRecording
+  activeCount, downloadDir, findRecording, forgetRecording, listRecordings, recordDir,
+  startDownload, startRecording, stopAll, stopRecording
 } from './recorder'
+import { clearStalkerSession, loadStalker, stalkerLink } from './stalker'
+import { isValidMac, normalizeMac } from '../shared/stalker'
 import type { HistoryEntry, Kind, PlayTarget, ProfileInput, Settings } from '../shared/types'
 
 // Donanım hızlandırma ayarı uygulama hazır olmadan uygulanmalı
@@ -22,6 +25,7 @@ if (!getSettings().hwAccel) app.disableHardwareAcceleration()
 const DEV_URL = process.env['ELECTRON_RENDERER_URL']
 let win: BrowserWindow | null = null
 let savedBounds: Electron.Rectangle | null = null
+let quitting = false
 
 function createWindow() {
   win = new BrowserWindow({
@@ -35,6 +39,17 @@ function createWindow() {
   })
   win.webContents.on('will-navigate', (e, url) => {
     if (!DEV_URL || !url.startsWith(DEV_URL)) e.preventDefault()
+  })
+  win.on('close', (e) => {
+    if (quitting || activeCount() === 0) return
+    const choice = dialog.showMessageBoxSync(win!, {
+      type: 'question', title: 'Aktif kayıt veya indirme var',
+      message: `${activeCount()} kayıt/indirme sürüyor.`,
+      detail: 'Çıkarsanız durdurulur. Küçültürseniz arka planda devam eder.',
+      buttons: ['Küçült (arka planda sürsün)', 'Çık ve durdur', 'Vazgeç'], defaultId: 0, cancelId: 2
+    })
+    if (choice === 0) { e.preventDefault(); win!.minimize() }
+    else if (choice === 2) e.preventDefault()
   })
   if (DEV_URL) win.loadURL(DEV_URL)
   else win.loadFile(join(__dirname, '../renderer/index.html'))
@@ -83,13 +98,18 @@ function setupSession() {
 const handle = <A extends unknown[], R>(ch: string, fn: (...a: A) => R | Promise<R>) =>
   ipcMain.handle(ch, (_e, ...args) => fn(...(args as A)))
 
+function resolveTarget(profileId: string, t: PlayTarget): Promise<string> | string {
+  if (t.stalker) return stalkerLink(findProfile(profileId), t.stalker)
+  return resolveStreamUrl(profileId, t, getSettings().liveExt)
+}
+
 const isStr = (x: unknown): x is string => typeof x === 'string' && x.length > 0 && x.length < 4096
 
 function setupIpc() {
   handle('profiles:get', () => store.get('profiles').map(publicProfile))
 
   handle('profiles:save', (input: ProfileInput) => {
-    if (!input || !isStr(input.name) || (input.type !== 'm3u' && input.type !== 'xtream')) throw new Error('Geçersiz profil')
+    if (!input || !isStr(input.name) || !['m3u', 'xtream', 'stalker'].includes(input.type)) throw new Error('Geçersiz profil')
     const list = store.get('profiles')
     const existing = input.id ? list.find((p) => p.id === input.id) : undefined
     const p: StoredProfile = {
@@ -98,10 +118,13 @@ function setupIpc() {
       url: input.url?.trim() || undefined, path: input.path || undefined,
       epgUrl: input.epgUrl?.trim() || undefined,
       server: input.server?.trim() || undefined, username: input.username?.trim() || undefined,
+      mac: input.mac ? normalizeMac(input.mac) : existing?.mac,
       passwordEnc: input.password ? encryptSecret(input.password) : existing?.passwordEnc
     }
     if (p.type === 'm3u' && !p.url && !p.path) throw new Error('M3U adresi veya dosyası gerekli')
+    if (p.type === 'stalker' && (!p.server || !p.mac || !isValidMac(p.mac))) throw new Error('Portal adresi ve geçerli bir MAC adresi (00:1A:79:XX:XX:XX) gerekli')
     if (p.type === 'xtream' && (!p.server || !p.username || !p.passwordEnc)) throw new Error('Sunucu, kullanıcı adı ve şifre gerekli')
+    clearStalkerSession(p.id)
     store.set('profiles', existing ? list.map((x) => (x.id === p.id ? p : x)) : [...list, p])
     return publicProfile(p)
   })
@@ -128,9 +151,12 @@ function setupIpc() {
     throw new Error('Bu profilde playlist kaynağı yok')
   })
 
-  handle('xtream:load', (profileId: string, kind: Kind) => loadXtream(profileId, kind))
+  handle('xtream:load', (profileId: string, kind: Kind) => {
+    const p = findProfile(profileId)
+    return p.type === 'stalker' ? loadStalker(p, kind) : loadXtream(profileId, kind)
+  })
   handle('xtream:detail', (profileId: string, kind: 'vod' | 'series', id: number) => xtreamDetail(profileId, kind, id))
-  handle('stream:resolve', (profileId: string, t: PlayTarget) => resolveStreamUrl(profileId, t, getSettings().liveExt))
+  handle('stream:resolve', (profileId: string, t: PlayTarget) => resolveTarget(profileId, t))
 
   handle('epg:load', (profileId: string, fallbackUrl?: string) => {
     const p = findProfile(profileId)
@@ -189,16 +215,24 @@ function setupIpc() {
     if (!exe) return { ok: false, error: 'Ayarlar sayfasından harici oynatıcı yolunu (mpv.exe / vlc.exe) belirtin.' }
     if (!/^https?:\/\//i.test(url)) return { ok: false, error: 'Geçersiz adres' }
     try {
-      spawn(exe, [url], { detached: true, stdio: 'ignore' }).unref()
+      const args = getSettings().externalArgs.split(/\s+/).filter(Boolean)
+      spawn(exe, [...args, url], { detached: true, stdio: 'ignore' }).unref()
       return { ok: true }
     } catch (e) {
       return { ok: false, error: (e as Error).message }
     }
   })
 
-  handle('record:start', (url: string, title: string) => {
+  handle('record:start', (url: string, title: string, minutes?: number) => {
     if (!isStr(url) || !isStr(title)) throw new Error('Geçersiz kayıt isteği')
-    return startRecording(url, title)
+    const m = Number.isFinite(minutes) ? Math.min(Math.max(Math.floor(minutes!), 0), 24 * 60) : 0
+    return startRecording(url, title, m)
+  })
+  handle('download:start', (profileId: string, target: PlayTarget, title: string, subdir?: string[]) => {
+    if (!isStr(profileId) || !isStr(title) || !target) throw new Error('Geçersiz indirme isteği')
+    findProfile(profileId)
+    const sub = Array.isArray(subdir) ? subdir.filter(isStr).slice(0, 4) : undefined
+    return startDownload(async () => resolveTarget(profileId, target), title, sub)
   })
   handle('record:stop', (id: string) => stopRecording(String(id)))
   handle('record:list', () => listRecordings())
@@ -208,10 +242,10 @@ function setupIpc() {
     const err = await shell.openPath(r.file)
     return err ? { ok: false, error: err } : { ok: true }
   })
-  handle('record:folder', async (id?: string) => {
+  handle('record:folder', async (id?: string, kind?: 'record' | 'download') => {
     const r = id ? findRecording(String(id)) : undefined
     if (r) shell.showItemInFolder(r.file)
-    else shell.openPath(recordDir())
+    else shell.openPath(kind === 'download' ? downloadDir() : recordDir())
   })
   handle('record:delete', async (id: string) => {
     const r = findRecording(String(id))
@@ -235,7 +269,7 @@ app.whenReady().then(() => {
   createWindow()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
-app.on('before-quit', () => stopAllRecordings())
+app.on('before-quit', () => { quitting = true; stopAll() })
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
 
 // Harici bağlantıları sistem tarayıcısında aç (yalnızca https)

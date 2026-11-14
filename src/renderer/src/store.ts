@@ -3,9 +3,10 @@ import type {
   HistoryEntry, Item, Kind, M3UResult, PlayTarget, Profile, ProfileInput, RecInfo, Settings
 } from '../../shared/types'
 import { groupSeries } from '../../shared/m3u'
+import { liveTarget } from './target'
 import { DEFAULT_SETTINGS } from '../../shared/types'
 
-export type Tab = 'live' | 'vod' | 'series' | 'continue' | 'recordings' | 'settings'
+export type Tab = 'live' | 'vod' | 'series' | 'continue' | 'recordings' | 'downloads' | 'settings'
 
 export interface PlayState {
   target: PlayTarget
@@ -52,7 +53,8 @@ interface S {
   playError: string
   mini: boolean
   recordings: RecInfo[]
-  rec?: { id: string; url: string }
+  /** Oynatılan adres -> kayıt kimliği */
+  recMap: Record<string, string>
 
   init(): Promise<void>
   selectProfile(id: string): Promise<void>
@@ -70,13 +72,15 @@ interface S {
   saveSettings(s: Partial<Settings>): Promise<void>
   setMini(on: boolean): Promise<void>
   refreshRecordings(): Promise<void>
-  toggleRecord(): Promise<void>
+  startRecord(minutes: number): Promise<void>
+  stopRecord(): Promise<void>
+  isRecording(url: string): boolean
 }
 
 export const useStore = create<S>((set, get) => ({
   ready: false, profiles: [], settings: DEFAULT_SETTINGS, tab: 'live',
   items: empty(), loaded: flags(), loading: flags(), error: '', notice: '',
-  favs: [], history: [], visibleLive: [], playError: '', mini: false, recordings: [],
+  favs: [], history: [], visibleLive: [], playError: '', mini: false, recordings: [], recMap: {},
 
   async init() {
     const [profiles, settings] = await Promise.all([window.api.getProfiles(), window.api.getSettings()])
@@ -175,6 +179,12 @@ export const useStore = create<S>((set, get) => ({
     set({ playError: '' })
     try {
       const url = await window.api.resolveUrl(id, target)
+      const st = get().settings
+      if (st.playerMode === 'external' && st.externalPlayer) {
+        const r = await window.api.openExternal(url)
+        if (!r.ok) set({ playError: r.error ?? 'Harici oynatıcı açılamadı' })
+        return
+      }
       set({
         playing: {
           target, url, itemId: opts.itemId, startAt: opts.startAt ?? 0,
@@ -197,11 +207,7 @@ export const useStore = create<S>((set, get) => ({
     const i = visibleLive.findIndex((x) => x.id === playing.itemId)
     const next = visibleLive[(i + delta + visibleLive.length) % visibleLive.length]
     if (!next) return
-    get().play(
-      { title: next.name, logo: next.logo, kind: 'live', url: next.url, tvgId: next.tvgId,
-        xtream: next.streamId ? { type: 'live', id: next.streamId } : undefined },
-      { itemId: next.id, overlay: false }
-    )
+    get().play(liveTarget(next), { itemId: next.id, overlay: false })
   },
 
   saveProgress(pos, dur) {
@@ -235,19 +241,28 @@ export const useStore = create<S>((set, get) => ({
     set({ recordings: await window.api.listRecordings() })
   },
 
-  async toggleRecord() {
-    const { playing, rec, recordings } = get()
+  async startRecord(minutes) {
+    const { playing } = get()
     if (!playing || playing.target.kind !== 'live') return
-    const active = rec && rec.url === playing.url && recordings.find((r) => r.id === rec.id)?.status === 'recording'
     try {
-      if (active) await window.api.stopRecording(rec!.id)
-      else {
-        const { id } = await window.api.startRecording(playing.url, playing.target.title)
-        set({ rec: { id, url: playing.url } })
-      }
+      const { id } = await window.api.startRecording(playing.url, playing.target.title, minutes)
+      set((s) => ({ recMap: { ...s.recMap, [playing.url]: id } }))
     } catch (e) {
-      set({ playError: (e as Error).message })
+      alert((e as Error).message)
     }
     await get().refreshRecordings()
+  },
+
+  async stopRecord() {
+    const { playing, recMap } = get()
+    const id = playing && recMap[playing.url]
+    if (id) await window.api.stopRecording(id)
+    await get().refreshRecordings()
+  },
+
+  isRecording(url) {
+    const { recMap, recordings } = get()
+    const id = recMap[url]
+    return !!id && recordings.find((r) => r.id === id)?.status === 'recording'
   }
 }))

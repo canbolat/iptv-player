@@ -26,11 +26,12 @@ export interface Api {
   setMini(on: boolean): Promise<void>
   openExternal(url: string): Promise<{ ok: boolean; error?: string }>
   relaunch(): Promise<void>
-  startRecording(url: string, title: string): Promise<{ id: string }>
+  startRecording(url: string, title: string, minutes?: number): Promise<{ id: string }>
+  startDownload(profileId: string, target: PlayTarget, title: string, subdir?: string[]): Promise<{ id: string }>
   stopRecording(id: string): Promise<void>
   listRecordings(): Promise<RecInfo[]>
   openRecording(id: string): Promise<{ ok: boolean; error?: string }>
-  showRecordingFolder(id?: string): Promise<void>
+  showRecordingFolder(id?: string, kind?: 'record' | 'download'): Promise<void>
   deleteRecording(id: string): Promise<void>
   pickFolder(): Promise<string | null>
 }

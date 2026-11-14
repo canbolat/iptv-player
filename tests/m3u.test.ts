@@ -112,3 +112,28 @@ http://h/series/u/p/4.mkv
   assert.deepEqual(Object.keys(show.localDetail!.seasons!), ['1', '2'])
   assert.deepEqual(show.localDetail!.seasons!['1'].map((e) => e.episode), [1, 2])
 })
+
+import { isValidMac, normalizeMac, stalkerCandidates, stripCmd } from '../src/shared/stalker.ts'
+
+test('stalker: MAC doğrulama', () => {
+  assert.equal(isValidMac('00:1A:79:AB:CD:EF'), true)
+  assert.equal(isValidMac('00-1a-79-ab-cd-ef'), true)
+  assert.equal(isValidMac('00:1A:79:AB:CD'), false)
+  assert.equal(isValidMac('zz:1A:79:AB:CD:EF'), false)
+  assert.equal(normalizeMac(' 00-1a-79-ab-cd-ef '), '00:1A:79:AB:CD:EF')
+})
+
+test('stalker: uç nokta adayları', () => {
+  assert.deepEqual(stalkerCandidates('http://h.example:8080/c/'), [
+    'http://h.example:8080/portal.php', 'http://h.example:8080/server/load.php',
+    'http://h.example:8080/stalker_portal/server/load.php'])
+  assert.deepEqual(stalkerCandidates('h.example/stalker_portal/c'), [
+    'http://h.example/stalker_portal/portal.php', 'http://h.example/stalker_portal/server/load.php'])
+  assert.deepEqual(stalkerCandidates('http://h/portal.php'), ['http://h/portal.php'])
+})
+
+test('stalker: komut ön ekini temizleme', () => {
+  assert.equal(stripCmd('ffmpeg http://s/live/1.ts?x=1'), 'http://s/live/1.ts?x=1')
+  assert.equal(stripCmd('ffrt3 http://s/ch/5'), 'http://s/ch/5')
+  assert.equal(stripCmd('http://s/direct'), 'http://s/direct')
+})

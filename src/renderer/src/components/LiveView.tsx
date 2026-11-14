@@ -2,6 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { norm } from '../../../shared/m3u'
 import { useStore } from '../store'
+import { liveTarget } from '../target'
 import { ErrorBox, Logo, Spinner } from './ui'
 
 const ALL = '__all__'
@@ -66,11 +67,7 @@ export default function LiveView() {
               <div key={it.id}
                 className={`absolute inset-x-0 flex items-center gap-3 px-3 cursor-pointer ${active ? 'bg-accent/25' : 'hover:bg-white/5'}`}
                 style={{ height: row.size, transform: `translateY(${row.start}px)` }}
-                onClick={() => play(
-                  { title: it.name, logo: it.logo, kind: 'live', url: it.url, tvgId: it.tvgId,
-                    xtream: it.streamId ? { type: 'live', id: it.streamId } : undefined },
-                  { itemId: it.id, overlay: false }
-                )}>
+                onClick={() => play(liveTarget(it), { itemId: it.id, overlay: false })}>
                 <Logo src={it.logo} name={it.name} size={38} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm">{it.name}</div>

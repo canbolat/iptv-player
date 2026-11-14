@@ -18,29 +18,34 @@ export interface Item {
   userAgent?: string
   /** M3U'dan gruplanmış dizilerde bölüm listesi */
   localDetail?: Detail
+  /** Stalker portal komutu */
+  cmd?: string
 }
 
 export interface Profile {
   id: string
   name: string
-  type: 'm3u' | 'xtream'
+  type: 'm3u' | 'xtream' | 'stalker'
   url?: string
   path?: string
   epgUrl?: string
   server?: string
   username?: string
+  /** Stalker için cihaz MAC adresi */
+  mac?: string
   hasPassword?: boolean
 }
 
 export interface ProfileInput {
   id?: string
   name: string
-  type: 'm3u' | 'xtream'
+  type: 'm3u' | 'xtream' | 'stalker'
   url?: string
   path?: string
   epgUrl?: string
   server?: string
   username?: string
+  mac?: string
   /** Boş bırakılırsa mevcut şifre korunur */
   password?: string
 }
@@ -50,11 +55,19 @@ export interface Settings {
   hwAccel: boolean
   externalPlayer: string
   liveExt: 'm3u8' | 'ts'
-  /** Kayıt klasörü; boşsa Videolar\\IPTV Kayitlari */
+  /** Kayıt klasörü; boşsa Videolar\IPTV Kayitlari */
   recordDir: string
+  /** İndirme klasörü; boşsa Videolar\IPTV Indirilenler */
+  downloadDir: string
   /** Uzantısız canlı adreslerde hangi motorun kullanılacağı */
   engine: 'auto' | 'hls' | 'ts'
-  buffer: 'low' | 'balanced' | 'stable'
+  /** İleri tampon hedefi (saniye) */
+  bufferSec: number
+  /** Oynatmadan önce ve takılma sonrası biriktirilecek tampon (saniye, yalnızca MPEG-TS) */
+  prebufferSec: number
+  /** Dahili oynatıcı veya harici (mpv/VLC) */
+  playerMode: 'internal' | 'external'
+  externalArgs: string
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -63,8 +76,12 @@ export const DEFAULT_SETTINGS: Settings = {
   externalPlayer: '',
   liveExt: 'm3u8',
   recordDir: '',
+  downloadDir: '',
   engine: 'auto',
-  buffer: 'stable'
+  bufferSec: 30,
+  prebufferSec: 4,
+  playerMode: 'internal',
+  externalArgs: ''
 }
 
 export interface EpgEntry {
@@ -89,6 +106,8 @@ export interface PlayTarget {
   /** Xtream: tür + kimlik */
   xtream?: { type: 'live' | 'movie' | 'series'; id: number; ext?: string }
   tvgId?: string
+  /** Stalker: komut ve (varsa) bölüm numarası */
+  stalker?: { type: 'itv' | 'vod'; cmd: string; series?: number }
 }
 
 export interface HistoryEntry {
@@ -131,11 +150,17 @@ export interface M3UResult {
 
 export interface RecInfo {
   id: string
+  type: 'record' | 'download'
   title: string
   file: string
   startedAt: number
   endedAt?: number
+  /** Zamanlı durdurma (epoch ms) */
+  stopAt?: number
   bytes: number
-  status: 'recording' | 'done' | 'error'
+  /** İndirmelerde toplam boyut, biliniyorsa */
+  total?: number
+  reconnects?: number
+  status: 'queued' | 'recording' | 'done' | 'error' | 'cancelled'
   error?: string
 }

@@ -20,7 +20,7 @@ npm install
 npm test
 npm run dist
 ```
-Çıktı: `release\IPTV Player-Setup-0.2.0.exe`
+Çıktı: `release\IPTV Player-Setup-0.3.0.exe`
 
 Notlar:
 - Kod imzası olmadığı için Windows SmartScreen "Bilinmeyen yayıncı" uyarısı verebilir. "Ek bilgi → Yine de çalıştır" ile açılır. Uyarısız dağıtım için kod imzalama sertifikası gerekir.
