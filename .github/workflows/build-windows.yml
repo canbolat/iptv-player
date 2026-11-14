@@ -13,6 +13,9 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm test
+     - name: Dosyalari listele
+        shell: pwsh
+        run: Get-ChildItem -Recurse -File src | ForEach-Object { $_.FullName }
       - run: npm run dist
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
