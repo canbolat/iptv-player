@@ -11,7 +11,18 @@ export default function DetailModal({ item, onClose }: { item: Item; onClose(): 
   const [err, setErr] = useState('')
   const [season, setSeason] = useState('')
 
+  const movieKey = item.url ? `movie:${item.url}` : `movie:${item.streamId}`
+  const epKey = (e: Episode) => (e.url ? `ep:${e.url}` : `ep:${e.id}`)
+
   useEffect(() => {
+    // M3U kaynaklarında ayrıntı sunucudan değil, listeden gelir
+    if (item.localDetail || (item.kind === 'vod' && !item.streamId)) {
+      const r = item.localDetail ?? {}
+      setD(r)
+      const keys = Object.keys(r.seasons ?? {}).sort((a, b) => Number(a) - Number(b))
+      if (keys[0]) setSeason(keys[0])
+      return
+    }
     let alive = true
     const id = item.kind === 'vod' ? item.streamId! : item.seriesId!
     window.api.xtreamDetail(activeId, item.kind as 'vod' | 'series', id)
@@ -26,17 +37,22 @@ export default function DetailModal({ item, onClose }: { item: Item; onClose(): 
   }, [item, activeId])
 
   const playMovie = () => {
-    const key = `movie:${item.streamId}`
-    const h = history.find((x) => x.key === key)
-    play({ title: item.name, logo: item.logo, kind: 'vod', xtream: { type: 'movie', id: item.streamId!, ext: item.ext } },
-      { startAt: h?.position ?? 0, historyKey: key })
+    const h = history.find((x) => x.key === movieKey)
+    play(
+      item.url
+        ? { title: item.name, logo: item.logo, kind: 'vod', url: item.url }
+        : { title: item.name, logo: item.logo, kind: 'vod', xtream: { type: 'movie', id: item.streamId!, ext: item.ext } },
+      { startAt: h?.position ?? 0, historyKey: movieKey })
     onClose()
   }
   const playEp = (e: Episode) => {
-    const key = `ep:${e.id}`
+    const key = epKey(e)
     const h = history.find((x) => x.key === key)
     const label = `${item.name} · S${String(e.season).padStart(2, '0')}E${String(e.episode).padStart(2, '0')} · ${e.title}`
-    play({ title: label, logo: item.logo, kind: 'series', xtream: { type: 'series', id: e.id, ext: e.ext } },
+    play(
+      e.url
+        ? { title: label, logo: item.logo, kind: 'series', url: e.url }
+        : { title: label, logo: item.logo, kind: 'series', xtream: { type: 'series', id: e.id, ext: e.ext } },
       { startAt: h?.position ?? 0, historyKey: key })
     onClose()
   }
@@ -68,7 +84,7 @@ export default function DetailModal({ item, onClose }: { item: Item; onClose(): 
             {d?.cast && <p className="text-xs text-slate-500">Oyuncular: {d.cast}</p>}
             {item.kind === 'vod' && (
               <button className="btn-primary mt-2" onClick={playMovie}>
-                {history.find((x) => x.key === `movie:${item.streamId}`) ? '▶ Devam et' : '▶ Oynat'}
+                {history.find((x) => x.key === movieKey) ? '▶ Devam et' : '▶ Oynat'}
               </button>
             )}
           </div>
@@ -87,7 +103,7 @@ export default function DetailModal({ item, onClose }: { item: Item; onClose(): 
             <div className="divide-y divide-line border border-line rounded-lg">
               {eps.length === 0 && <div className="p-4 text-sm text-slate-500">Bölüm bulunamadı.</div>}
               {eps.map((e) => {
-                const h = history.find((x) => x.key === `ep:${e.id}`)
+                const h = history.find((x) => x.key === epKey(e))
                 return (
                   <div key={e.id} className="flex items-center gap-3 p-3 hover:bg-white/5 cursor-pointer" onClick={() => playEp(e)}>
                     <div className="w-8 text-center text-slate-500 text-sm">{e.episode}</div>

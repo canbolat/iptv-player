@@ -70,6 +70,33 @@ export default function SettingsView({ onEdit }: { onEdit(p: Profile): void }) {
         </section>
 
         <section className="space-y-2">
+          <h2 className="font-medium">Akış kalitesi (donma/takılma)</h2>
+          <label className="text-sm text-slate-400 block">Tampon</label>
+          <select className="field max-w-xs" value={settings.buffer} onChange={(e) => patch({ buffer: e.target.value as Settings['buffer'] })}>
+            <option value="stable">Kararlı (önerilen, daha az takılma)</option>
+            <option value="balanced">Dengeli</option>
+            <option value="low">Düşük gecikme (daha çok takılabilir)</option>
+          </select>
+          <label className="text-sm text-slate-400 block pt-2">Uzantısız canlı adreslerde motor</label>
+          <select className="field max-w-xs" value={settings.engine} onChange={(e) => patch({ engine: e.target.value as Settings['engine'] })}>
+            <option value="auto">Otomatik</option>
+            <option value="ts">MPEG-TS</option>
+            <option value="hls">HLS</option>
+          </select>
+          <p className="text-xs text-slate-500">Bir kanal takılıyorsa önce Tamponu "Kararlı" yapın, sonra Xtream biçimini .ts / .m3u8 arasında değiştirip deneyin.</p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-medium">Kayıt</h2>
+          <label className="text-sm text-slate-400 block">Kayıt klasörü</label>
+          <div className="flex gap-2">
+            <input className="field" readOnly placeholder="Videolar\IPTV Kayitlari (varsayılan)" value={settings.recordDir} />
+            <button className="btn" onClick={async () => { const d = await window.api.pickFolder(); if (d) patch({ recordDir: d }) }}>Seç…</button>
+            {settings.recordDir && <button className="btn" onClick={() => patch({ recordDir: '' })}>Varsayılan</button>}
+          </div>
+        </section>
+
+        <section className="space-y-2">
           <h2 className="font-medium">Önbellek</h2>
           <button className="btn" onClick={async () => { await window.api.clearCache(); flash('Önbellek temizlendi') }}>EPG ve ağ önbelleğini temizle</button>
         </section>

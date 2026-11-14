@@ -16,6 +16,8 @@ export interface Item {
   rating?: string
   plot?: string
   userAgent?: string
+  /** M3U'dan gruplanmış dizilerde bölüm listesi */
+  localDetail?: Detail
 }
 
 export interface Profile {
@@ -48,13 +50,21 @@ export interface Settings {
   hwAccel: boolean
   externalPlayer: string
   liveExt: 'm3u8' | 'ts'
+  /** Kayıt klasörü; boşsa Videolar\\IPTV Kayitlari */
+  recordDir: string
+  /** Uzantısız canlı adreslerde hangi motorun kullanılacağı */
+  engine: 'auto' | 'hls' | 'ts'
+  buffer: 'low' | 'balanced' | 'stable'
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   userAgent: 'VLC/3.0.20 LibVLC/3.0.20',
   hwAccel: true,
   externalPlayer: '',
-  liveExt: 'm3u8'
+  liveExt: 'm3u8',
+  recordDir: '',
+  engine: 'auto',
+  buffer: 'stable'
 }
 
 export interface EpgEntry {
@@ -96,6 +106,8 @@ export interface Episode {
   season: number
   episode: number
   ext: string
+  /** M3U kaynaklı bölümlerde doğrudan adres */
+  url?: string
   plot?: string
   image?: string
   duration?: string
@@ -115,4 +127,15 @@ export interface M3UResult {
   items: Item[]
   skipped: number
   epgUrl?: string
+}
+
+export interface RecInfo {
+  id: string
+  title: string
+  file: string
+  startedAt: number
+  endedAt?: number
+  bytes: number
+  status: 'recording' | 'done' | 'error'
+  error?: string
 }

@@ -14,6 +14,10 @@ interface Props {
   onToggleMini(): void
   onExternal(): void
   onProgress?(pos: number, dur: number): void
+  engine: 'auto' | 'hls' | 'ts'
+  buffer: 'low' | 'balanced' | 'stable'
+  recording: boolean
+  onRecord?(): void
 }
 
 type Status = 'loading' | 'playing' | 'error'
@@ -92,14 +96,23 @@ export default function Player(props: Props) {
     let mode: Mode
     if (clean.endsWith('.m3u8')) mode = 'hls'
     else if (clean.endsWith('.ts')) mode = 'ts'
-    else if (live && !/\.(mp4|mkv|avi|webm|mov|m4v)$/.test(clean)) mode = attempt.current % 2 === 0 ? 'ts' : 'hls'
+    else if (live && !/\.(mp4|mkv|avi|webm|mov|m4v)$/.test(clean)) {
+      const eng = propsRef.current.engine
+      mode = eng === 'hls' ? 'hls' : eng === 'ts' ? 'ts' : attempt.current % 2 === 0 ? 'ts' : 'hls'
+    }
     else mode = 'native'
     if (mode === 'hls' && !Hls.isSupported()) mode = 'native'
     if (mode === 'ts' && !mpegts.isSupported()) mode = 'native'
     modeRef.current = mode
 
     if (mode === 'hls') {
-      const hls = new Hls({ enableWorker: true, maxBufferLength: 30 })
+      const B = propsRef.current.buffer
+      const cfg =
+        B === 'low' ? { maxBufferLength: 20, liveSyncDurationCount: 3 }
+        : B === 'balanced' ? { maxBufferLength: 40, maxMaxBufferLength: 90, liveSyncDurationCount: 4 }
+        : { maxBufferLength: 60, maxMaxBufferLength: 120, liveSyncDurationCount: 6, backBufferLength: 30,
+            fragLoadingMaxRetry: 6, levelLoadingMaxRetry: 6, manifestLoadingMaxRetry: 6 }
+      const hls = new Hls({ enableWorker: true, lowLatencyMode: false, ...cfg })
       hlsRef.current = hls
       hls.on(Hls.Events.MANIFEST_PARSED, (_e, d) => {
         setLevels(d.levels.map((l, i) => ({ i, h: l.height, b: l.bitrate })))
@@ -119,7 +132,16 @@ export default function Player(props: Props) {
     } else if (mode === 'ts') {
       const p = mpegts.createPlayer(
         { type: 'mpegts', isLive: live, url },
-        { enableWorker: false, liveBufferLatencyChasing: live, lazyLoad: false }
+        {
+          enableWorker: true,
+          liveBufferLatencyChasing: propsRef.current.buffer === 'low',
+          enableStashBuffer: propsRef.current.buffer !== 'low',
+          stashInitialSize: propsRef.current.buffer === 'stable' ? 1024 * 1024 : 384 * 1024,
+          autoCleanupSourceBuffer: true,
+          autoCleanupMaxBackwardDuration: 60,
+          autoCleanupMinBackwardDuration: 30,
+          lazyLoad: false
+        } as any
       )
       tsRef.current = p
       p.on(mpegts.Events.ERROR, () => scheduleRetry())
@@ -156,7 +178,7 @@ export default function Player(props: Props) {
       if (live && !v.paused && !timer.current) {
         if (v.currentTime === lastT) same++ ; else same = 0
         lastT = v.currentTime
-        if (same >= 5) { same = 0; scheduleRetry() }
+        if (same >= 15) { same = 0; scheduleRetry() }
       }
       const q = v.getVideoPlaybackQuality?.()
       const fps = q ? Math.max(0, q.totalVideoFrames - lastFrames) : 0
@@ -236,7 +258,7 @@ export default function Player(props: Props) {
         }}
         onTimeUpdate={(e) => {
           const v = e.currentTarget
-          setTime(v.currentTime)
+          if (!live) setTime(v.currentTime)
           if (!live && propsRef.current.onProgress && Date.now() - lastSave.current > 5000) {
             lastSave.current = Date.now()
             propsRef.current.onProgress(v.currentTime, v.duration)
@@ -260,6 +282,7 @@ export default function Player(props: Props) {
             <div className="truncate font-medium">{title}</div>
             {header}
           </div>
+          {props.recording && <span className="px-2 py-0.5 rounded bg-red-600 text-xs font-semibold animate-pulse whitespace-nowrap">● KAYIT</span>}
           {badge && <span className="px-2 py-0.5 rounded bg-white/15 text-xs whitespace-nowrap">{badge}</span>}
         </div>
       </div>
@@ -321,6 +344,12 @@ export default function Player(props: Props) {
               <option value={-1}>Altyazı kapalı</option>
               {subs.map((a, i) => <option key={i} value={i}>{a}</option>)}
             </select>
+          )}
+          {live && props.onRecord && (
+            <button className={`btn ${props.recording ? '!bg-red-600 hover:!bg-red-500' : ''}`} onClick={props.onRecord}
+              title={props.recording ? 'Kaydı durdur' : 'Bu kanalı kaydet'}>
+              {props.recording ? '⏹ Kaydı durdur' : '⏺ Kaydet'}
+            </button>
           )}
           <button className="btn" onClick={props.onToggleMini} title="Her zaman üstte mini oynatıcı">{mini ? '⤢' : '🗗'}</button>
           <button className="btn" onClick={toggleFs} title="Tam ekran (F)">⛶</button>

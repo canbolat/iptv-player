@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron'
+import { unlink } from 'fs/promises'
 import { spawn } from 'child_process'
 import { readFileSync } from 'fs'
 import { basename, join } from 'path'
@@ -10,6 +11,9 @@ import type { StoredProfile } from './store'
 import { fetchText } from './net'
 import { loadXtream, resolveStreamUrl, xtreamDetail, xtreamEpgUrl } from './xtream'
 import { clearEpgCache, loadEpg, nowNext } from './epg'
+import {
+  findRecording, forgetRecording, listRecordings, recordDir, startRecording, stopAllRecordings, stopRecording
+} from './recorder'
 import type { HistoryEntry, Kind, PlayTarget, ProfileInput, Settings } from '../shared/types'
 
 // Donanım hızlandırma ayarı uygulama hazır olmadan uygulanmalı
@@ -192,6 +196,36 @@ function setupIpc() {
     }
   })
 
+  handle('record:start', (url: string, title: string) => {
+    if (!isStr(url) || !isStr(title)) throw new Error('Geçersiz kayıt isteği')
+    return startRecording(url, title)
+  })
+  handle('record:stop', (id: string) => stopRecording(String(id)))
+  handle('record:list', () => listRecordings())
+  handle('record:open', async (id: string) => {
+    const r = findRecording(String(id))
+    if (!r) return { ok: false, error: 'Kayıt bulunamadı' }
+    const err = await shell.openPath(r.file)
+    return err ? { ok: false, error: err } : { ok: true }
+  })
+  handle('record:folder', async (id?: string) => {
+    const r = id ? findRecording(String(id)) : undefined
+    if (r) shell.showItemInFolder(r.file)
+    else shell.openPath(recordDir())
+  })
+  handle('record:delete', async (id: string) => {
+    const r = findRecording(String(id))
+    if (!r) return
+    stopRecording(r.id)
+    await new Promise((res) => setTimeout(res, 300))
+    try { await unlink(r.file) } catch { /* dosya yok say */ }
+    forgetRecording(r.id)
+  })
+  handle('dialog:folder', async () => {
+    const r = await dialog.showOpenDialog(win!, { title: 'Kayıt klasörü seç', properties: ['openDirectory', 'createDirectory'] })
+    return r.canceled ? null : r.filePaths[0]
+  })
+
   handle('app:relaunch', () => { app.relaunch(); app.exit(0) })
 }
 
@@ -201,6 +235,7 @@ app.whenReady().then(() => {
   createWindow()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
+app.on('before-quit', () => stopAllRecordings())
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
 
 // Harici bağlantıları sistem tarayıcısında aç (yalnızca https)

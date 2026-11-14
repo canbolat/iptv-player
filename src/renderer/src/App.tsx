@@ -7,6 +7,7 @@ import GridView from './components/GridView'
 import LiveView from './components/LiveView'
 import Player from './components/Player'
 import ProfileDialog from './components/ProfileDialog'
+import RecordingsView from './components/RecordingsView'
 import SettingsView from './components/SettingsView'
 
 const SIDEBAR_W = 200
@@ -17,6 +18,7 @@ const NAV: { tab: Tab; label: string; icon: string }[] = [
   { tab: 'vod', label: 'Filmler', icon: '🎬' },
   { tab: 'series', label: 'Diziler', icon: '🎞️' },
   { tab: 'continue', label: 'Devam Et', icon: '⏯️' },
+  { tab: 'recordings', label: 'Kayıtlar', icon: '⏺️' },
   { tab: 'settings', label: 'Ayarlar', icon: '⚙️' }
 ]
 
@@ -25,6 +27,11 @@ export default function App() {
   const [dialog, setDialog] = useState<{ profile?: Profile } | null>(null)
 
   useEffect(() => { s.init() }, [])
+  useEffect(() => {
+    s.refreshRecordings()
+    const id = setInterval(() => s.refreshRecordings(), 2000)
+    return () => clearInterval(id)
+  }, [])
 
   const profile = s.profiles.find((p) => p.id === s.activeId)
   const p = s.playing
@@ -88,6 +95,7 @@ export default function App() {
             {s.tab === 'vod' && <GridView kind="vod" />}
             {s.tab === 'series' && <GridView kind="series" />}
             {s.tab === 'continue' && <ContinueView />}
+            {s.tab === 'recordings' && <RecordingsView />}
             {s.tab === 'settings' && <SettingsView onEdit={(pr) => setDialog({ profile: pr })} />}
           </>
         )}
@@ -109,6 +117,10 @@ export default function App() {
             onToggleMini={() => s.setMini(!s.mini)}
             onExternal={external}
             onProgress={(pos, dur) => s.saveProgress(pos, dur)}
+            engine={s.settings.engine}
+            buffer={s.settings.buffer}
+            recording={!!s.rec && s.rec.url === p.url && s.recordings.find((r) => r.id === s.rec!.id)?.status === 'recording'}
+            onRecord={live ? () => s.toggleRecord() : undefined}
           />
         </div>
       )}

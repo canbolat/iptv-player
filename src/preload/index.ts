@@ -24,7 +24,14 @@ const api: Api = {
   clearCache: call('cache:clear') as Api['clearCache'],
   setMini: call('window:mini') as Api['setMini'],
   openExternal: call('player:external') as Api['openExternal'],
-  relaunch: call('app:relaunch') as Api['relaunch']
+  relaunch: call('app:relaunch') as Api['relaunch'],
+  startRecording: call('record:start') as Api['startRecording'],
+  stopRecording: call('record:stop') as Api['stopRecording'],
+  listRecordings: call('record:list') as Api['listRecordings'],
+  openRecording: call('record:open') as Api['openRecording'],
+  showRecordingFolder: call('record:folder') as Api['showRecordingFolder'],
+  deleteRecording: call('record:delete') as Api['deleteRecording'],
+  pickFolder: call('dialog:folder') as Api['pickFolder']
 }
 
 contextBridge.exposeInMainWorld('api', api)

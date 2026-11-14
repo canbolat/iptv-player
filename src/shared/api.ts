@@ -1,5 +1,5 @@
 import type {
-  Detail, EpgNowNext, HistoryEntry, Item, Kind, PlayTarget, Profile, ProfileInput, Settings
+  Detail, EpgNowNext, HistoryEntry, Item, Kind, PlayTarget, Profile, ProfileInput, RecInfo, Settings
 } from './types'
 
 export interface Api {
@@ -26,6 +26,13 @@ export interface Api {
   setMini(on: boolean): Promise<void>
   openExternal(url: string): Promise<{ ok: boolean; error?: string }>
   relaunch(): Promise<void>
+  startRecording(url: string, title: string): Promise<{ id: string }>
+  stopRecording(id: string): Promise<void>
+  listRecordings(): Promise<RecInfo[]>
+  openRecording(id: string): Promise<{ ok: boolean; error?: string }>
+  showRecordingFolder(id?: string): Promise<void>
+  deleteRecording(id: string): Promise<void>
+  pickFolder(): Promise<string | null>
 }
 
 declare global {

@@ -1,10 +1,11 @@
 import { create } from 'zustand'
 import type {
-  HistoryEntry, Item, Kind, M3UResult, PlayTarget, Profile, ProfileInput, Settings
+  HistoryEntry, Item, Kind, M3UResult, PlayTarget, Profile, ProfileInput, RecInfo, Settings
 } from '../../shared/types'
+import { groupSeries } from '../../shared/m3u'
 import { DEFAULT_SETTINGS } from '../../shared/types'
 
-export type Tab = 'live' | 'vod' | 'series' | 'continue' | 'settings'
+export type Tab = 'live' | 'vod' | 'series' | 'continue' | 'recordings' | 'settings'
 
 export interface PlayState {
   target: PlayTarget
@@ -50,6 +51,8 @@ interface S {
   playing?: PlayState
   playError: string
   mini: boolean
+  recordings: RecInfo[]
+  rec?: { id: string; url: string }
 
   init(): Promise<void>
   selectProfile(id: string): Promise<void>
@@ -66,12 +69,14 @@ interface S {
   removeHistory(key: string): Promise<void>
   saveSettings(s: Partial<Settings>): Promise<void>
   setMini(on: boolean): Promise<void>
+  refreshRecordings(): Promise<void>
+  toggleRecord(): Promise<void>
 }
 
 export const useStore = create<S>((set, get) => ({
   ready: false, profiles: [], settings: DEFAULT_SETTINGS, tab: 'live',
   items: empty(), loaded: flags(), loading: flags(), error: '', notice: '',
-  favs: [], history: [], visibleLive: [], playError: '', mini: false,
+  favs: [], history: [], visibleLive: [], playError: '', mini: false, recordings: [],
 
   async init() {
     const [profiles, settings] = await Promise.all([window.api.getProfiles(), window.api.getSettings()])
@@ -94,21 +99,26 @@ export const useStore = create<S>((set, get) => ({
   async loadKind(kind, force = false) {
     const { activeId, profiles, loaded, loading } = get()
     const profile = profiles.find((p) => p.id === activeId)
-    if (!profile || (!force && (loaded[kind] || loading[kind]))) return
+    if (!profile) return
+    // M3U profillerinde tek seferde üç tür birden ayrıştırılır
+    if (profile.type === 'm3u') kind = 'live'
+    if (!force && (loaded[kind] || loading[kind])) return
     set((s) => ({ loading: { ...s.loading, [kind]: true }, error: '' }))
     try {
       let items: Item[]
       let epgFallback: string | undefined
       if (profile.type === 'm3u') {
-        if (kind !== 'live') { items = [] }
-        else {
-          const text = await window.api.getPlaylistText(profile.id)
-          const r = await parseInWorker(text)
-          items = r.items
-          epgFallback = r.epgUrl
-          if (r.skipped > 0) set({ notice: `${r.skipped} bozuk satır atlandı.` })
-          if (items.length === 0) throw new Error('Playlist içinde oynatılabilir kanal bulunamadı.')
-        }
+        const text = await window.api.getPlaylistText(profile.id)
+        const r = await parseInWorker(text)
+        epgFallback = r.epgUrl
+        if (r.skipped > 0) set({ notice: `${r.skipped} bozuk satır atlandı.` })
+        if (r.items.length === 0) throw new Error('Playlist içinde oynatılabilir kanal bulunamadı.')
+        const live = r.items.filter((i) => i.kind === 'live')
+        const vod = r.items.filter((i) => i.kind === 'vod')
+        const series = groupSeries(r.items.filter((i) => i.kind === 'series'))
+        if (get().activeId !== profile.id) return
+        set({ items: { live, vod, series }, loaded: { live: true, vod: true, series: true } })
+        items = live
       } else {
         items = await window.api.loadXtream(profile.id, kind)
       }
@@ -219,5 +229,25 @@ export const useStore = create<S>((set, get) => ({
   async setMini(on) {
     set({ mini: on })
     await window.api.setMini(on)
+  },
+
+  async refreshRecordings() {
+    set({ recordings: await window.api.listRecordings() })
+  },
+
+  async toggleRecord() {
+    const { playing, rec, recordings } = get()
+    if (!playing || playing.target.kind !== 'live') return
+    const active = rec && rec.url === playing.url && recordings.find((r) => r.id === rec.id)?.status === 'recording'
+    try {
+      if (active) await window.api.stopRecording(rec!.id)
+      else {
+        const { id } = await window.api.startRecording(playing.url, playing.target.title)
+        set({ rec: { id, url: playing.url } })
+      }
+    } catch (e) {
+      set({ playError: (e as Error).message })
+    }
+    await get().refreshRecordings()
   }
 }))

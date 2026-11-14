@@ -13,7 +13,6 @@ export default function GridView({ kind }: { kind: 'vod' | 'series' }) {
   const items = useStore((s) => s.items[kind])
   const loading = useStore((s) => s.loading[kind])
   const error = useStore((s) => s.error)
-  const profileType = useStore((s) => s.profiles.find((p) => p.id === s.activeId)?.type)
   const { loadKind } = useStore.getState()
 
   const [q, setQ] = useState('')
@@ -40,9 +39,6 @@ export default function GridView({ kind }: { kind: 'vod' | 'series' }) {
   const rows = Math.ceil(list.length / cols)
   const v = useVirtualizer({ count: rows, getScrollElement: () => ref.current, estimateSize: () => ROW_H, overscan: 3 })
 
-  if (profileType === 'm3u') {
-    return <ErrorBox message="M3U profillerinde yalnızca canlı yayınlar listelenir. Film ve diziler için Xtream Codes profili ekleyin." />
-  }
   if (loading && items.length === 0) return <Spinner label={kind === 'vod' ? 'Filmler yükleniyor…' : 'Diziler yükleniyor…'} />
   if (error && items.length === 0) return <ErrorBox message={error} onRetry={() => loadKind(kind, true)} />
 
@@ -57,7 +53,13 @@ export default function GridView({ kind }: { kind: 'vod' | 'series' }) {
         </select>
       </div>
       <div ref={ref} className="flex-1 overflow-y-auto px-2">
-        {list.length === 0 && <div className="p-8 text-center text-sm text-slate-500">Sonuç yok.</div>}
+        {items.length === 0 && (
+          <div className="p-8 text-center text-sm text-slate-500 max-w-md mx-auto">
+            {kind === 'vod' ? 'Bu kaynakta film bulunamadı.' : 'Bu kaynakta dizi bulunamadı.'}
+            {' '}M3U listelerinde film/dizi; adres yolundaki /movie/ ve /series/ ifadelerinden, video dosya uzantısından (.mp4, .mkv) ve "S01E02" gibi bölüm adlarından otomatik ayrılır.
+          </div>
+        )}
+        {items.length > 0 && list.length === 0 && <div className="p-8 text-center text-sm text-slate-500">Sonuç yok.</div>}
         <div style={{ height: v.getTotalSize(), position: 'relative' }}>
           {v.getVirtualItems().map((row) => (
             <div key={row.index} className="absolute inset-x-0 flex gap-2 py-1"
