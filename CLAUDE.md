@@ -25,8 +25,14 @@ Electron + React + TypeScript + Tailwind CSS ile yazılmış, karanlık temalı 
 7. Günlüklerde kimlik bilgisi basılmaz (`maskUrl`).
 8. Kod yorumları ve arayüz metinleri Türkçe.
 
+## Özellik notları
+- M3U içerik türü: `shared/m3u.ts` içindeki `classify` (URL yolu /movie/ /series/ /live/, dosya uzantısı, bölüm adı "S01E02") ve `groupSeries`.
+- Kayıt: `main/recorder.ts` yayını .ts olarak diske yazar (ham TS veya HLS segmentleri). Fazladan bir bağlantı açar; bazı sağlayıcılar tek bağlantıya izin verir.
+- Akış ayarları: Ayarlar > tampon (low/balanced/stable) ve motor (auto/hls/ts).
+
 ## Bilinen sınırlar / yapılacaklar
 - MKV, HEVC, AC3/E-AC3 yerleşik oynatıcıda garanti değil → "Harici oynatıcıda aç".
 - Veri depolama şimdilik `electron-store` (JSON) + `epg-cache.json`; çok büyük EPG/kanal setleri için better-sqlite3'e geçiş planlı.
 - EPG ayrıştırıcı regex tabanlıdır ve dosyayı belleğe alır; çok büyük XMLTV için akışlı ayrıştırıcıya geçilecek.
+- Kayıt listesi oturumla sınırlıdır (yeniden başlatınca listelenmez; dosyalar klasörde durur). Şifreli HLS ve fMP4 kaydedilemez.
 - Catch-up/timeshift, ebeveyn kilidi, çoklu dil, otomatik güncelleme henüz yok.

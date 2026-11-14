@@ -72,3 +72,43 @@ test('Türkçe arama normalleştirme', () => {
   assert.equal(norm('İstanbul ŞEHİR'), norm('istanbul sehir'))
   assert.equal(norm('Işık'), 'isik')
 })
+
+import { classify, groupSeries, parseEpisodeName } from '../src/shared/m3u.ts'
+
+test('içerik türü: canlı, film, dizi', () => {
+  assert.equal(classify('http://h/live/u/p/1.ts', 'Spor', 'Spor 1'), 'live')
+  assert.equal(classify('http://h/u/p/123', 'Haber', 'Haber'), 'live')
+  assert.equal(classify('http://h/movie/u/p/5.mkv', 'Aksiyon', 'Film'), 'vod')
+  assert.equal(classify('http://h/series/u/p/9.mp4', 'X', 'Y'), 'series')
+  assert.equal(classify('http://h/files/film.mp4', 'Komedi', 'Bir Film (2020)'), 'vod')
+  assert.equal(classify('http://h/files/a.mp4', 'Diziler', 'Bir Dizi'), 'series')
+  assert.equal(classify('http://h/files/a.mkv', 'Tümü', 'Show S02E05'), 'series')
+  // canlı sinema kanalı, kategori adı "film" içerse de canlı kalır
+  assert.equal(classify('http://h/stream/77.m3u8', 'Film Kanalları', 'Sinema 1'), 'live')
+})
+
+test('bölüm adı ayrıştırma', () => {
+  assert.deepEqual(parseEpisodeName('Breaking Bad S01E02'), { title: 'Breaking Bad', season: 1, episode: 2 })
+  assert.deepEqual(parseEpisodeName('Show - S3 E10'), { title: 'Show', season: 3, episode: 10 })
+  assert.deepEqual(parseEpisodeName('Dizi 2x05'), { title: 'Dizi', season: 2, episode: 5 })
+  assert.deepEqual(parseEpisodeName('Gibi 1. Sezon 4. Bölüm'), { title: 'Gibi', season: 1, episode: 4 })
+  assert.equal(parseEpisodeName('Sadece Film'), null)
+})
+
+test('diziler gruplanır, sezon ve bölümler sıralanır', () => {
+  const r = parseM3U(`#EXTM3U
+#EXTINF:-1 group-title="Diziler",Show S01E02
+http://h/series/u/p/2.mkv
+#EXTINF:-1 group-title="Diziler",Show S01E01
+http://h/series/u/p/1.mkv
+#EXTINF:-1 group-title="Diziler",Show S02E01
+http://h/series/u/p/3.mkv
+#EXTINF:-1 group-title="Diziler",Baska S01E01
+http://h/series/u/p/4.mkv
+`)
+  const series = groupSeries(r.items.filter((i) => i.kind === 'series'))
+  assert.equal(series.length, 2)
+  const show = series.find((s) => s.name === 'Show')!
+  assert.deepEqual(Object.keys(show.localDetail!.seasons!), ['1', '2'])
+  assert.deepEqual(show.localDetail!.seasons!['1'].map((e) => e.episode), [1, 2])
+})
