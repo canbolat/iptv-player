@@ -32,7 +32,28 @@ const api: Api = {
   openRecording: call('record:open') as Api['openRecording'],
   showRecordingFolder: call('record:folder') as Api['showRecordingFolder'],
   deleteRecording: call('record:delete') as Api['deleteRecording'],
-  pickFolder: call('dialog:folder') as Api['pickFolder']
+  pickFolder: call('dialog:folder') as Api['pickFolder'],
+  epgRange: call('epg:range') as Api['epgRange'],
+  catchupList: call('catchup:list') as Api['catchupList'],
+  addSchedule: call('schedule:add') as Api['addSchedule'],
+  listSchedules: call('schedule:list') as Api['listSchedules'],
+  removeSchedule: call('schedule:remove') as Api['removeSchedule'],
+  pinStatus: call('pin:status') as Api['pinStatus'],
+  verifyPin: call('pin:verify') as Api['verifyPin'],
+  setPin: call('pin:set') as Api['setPin'],
+  removePin: call('pin:remove') as Api['removePin'],
+  getLocks: call('locks:get') as Api['getLocks'],
+  setLocks: call('locks:set') as Api['setLocks'],
+  appVersion: call('app:version') as Api['appVersion'],
+  updateStatus: call('update:status') as Api['updateStatus'],
+  checkUpdate: call('update:check') as Api['checkUpdate'],
+  downloadUpdate: call('update:download') as Api['downloadUpdate'],
+  installUpdate: call('update:install') as Api['installUpdate'],
+  onUpdateStatus: (cb) => {
+    const h = (_e: unknown, s: Parameters<typeof cb>[0]) => cb(s)
+    ipcRenderer.on('update:status', h)
+    return () => ipcRenderer.removeListener('update:status', h)
+  }
 }
 
 contextBridge.exposeInMainWorld('api', api)

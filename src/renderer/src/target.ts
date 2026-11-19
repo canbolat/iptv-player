@@ -5,6 +5,7 @@ export function liveTarget(it: Item): PlayTarget {
   return {
     title: it.name, logo: it.logo, kind: 'live', url: it.url, tvgId: it.tvgId,
     xtream: it.streamId ? { type: 'live', id: it.streamId } : undefined,
-    stalker: it.cmd ? { type: 'itv', cmd: it.cmd } : undefined
+    stalker: it.cmd ? { type: 'itv', cmd: it.cmd } : undefined,
+    archive: !!it.archive
   }
 }

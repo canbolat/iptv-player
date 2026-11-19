@@ -18,7 +18,10 @@ interface Props {
   bufferSec: number
   prebufferSec: number
   recording: boolean
+  overlay: boolean
   onRecord?(): void
+  onCatchup?(): void
+  onDiag?(e: { type: 'start' | 'stall' | 'retry' | 'error' | 'drops'; mode?: string; info?: string; value?: number }): void
 }
 
 type Status = 'loading' | 'playing' | 'error'
@@ -50,6 +53,7 @@ export default function Player(props: Props) {
   const holdSince = useRef(0)
 
   const [status, setStatus] = useState<Status>('loading')
+  const statusRef = useRef<Status>('loading')
   const [msg, setMsg] = useState('')
   const [paused, setPaused] = useState(false)
   const [volume, setVolume] = useState(1)
@@ -65,6 +69,7 @@ export default function Player(props: Props) {
   const [badge, setBadge] = useState('')
   const [showUi, setShowUi] = useState(true)
   const idleTimer = useRef(0)
+  statusRef.current = status
 
   const teardown = () => {
     holdRef.current = false
@@ -79,10 +84,12 @@ export default function Player(props: Props) {
     if (retry.current >= MAX_RETRY) {
       setStatus('error')
       setMsg('Yayın açılamadı. Bağlantı, hesap durumu veya biçim sorunu olabilir.')
+      propsRef.current.onDiag?.({ type: 'error', info: 'Yeniden bağlanma hakkı bitti' })
       return
     }
     retry.current += 1
     attempt.current += 1
+    propsRef.current.onDiag?.({ type: 'retry' })
     setStatus('loading')
     setMsg(`Yeniden bağlanılıyor (${retry.current}/${MAX_RETRY})…`)
     timer.current = window.setTimeout(() => { timer.current = 0; startRef.current() }, Math.min(1000 * 2 ** retry.current, 15000))
@@ -108,6 +115,7 @@ export default function Player(props: Props) {
     if (mode === 'hls' && !Hls.isSupported()) mode = 'native'
     if (mode === 'ts' && !mpegts.isSupported()) mode = 'native'
     modeRef.current = mode
+    if (retry.current === 0) propsRef.current.onDiag?.({ type: 'start', mode })
 
     if (mode === 'hls') {
       const sec = Math.min(120, Math.max(5, propsRef.current.bufferSec))
@@ -181,7 +189,7 @@ export default function Player(props: Props) {
 
   // Takılma bekçisi + istatistik rozeti
   useEffect(() => {
-    let lastT = -1, same = 0, lastFrames = 0
+    let lastT = -1, same = 0, lastFrames = 0, tick5 = 0
     const id = window.setInterval(() => {
       const v = videoRef.current
       if (!v) return
@@ -191,6 +199,8 @@ export default function Player(props: Props) {
         if (same >= 15) { same = 0; scheduleRetry() }
       }
       const q = v.getVideoPlaybackQuality?.()
+      tick5++
+      if (q && tick5 % 5 === 0 && q.droppedVideoFrames > 0) propsRef.current.onDiag?.({ type: 'drops', value: q.droppedVideoFrames })
       const fps = q ? Math.max(0, q.totalVideoFrames - lastFrames) : 0
       if (q) lastFrames = q.totalVideoFrames
       let codec = ''
@@ -281,6 +291,7 @@ export default function Player(props: Props) {
         onClick={togglePlay}
         onPlaying={() => { setStatus('playing'); setMsg(''); retry.current = 0 }}
         onWaiting={() => {
+          if (statusRef.current === 'playing') propsRef.current.onDiag?.({ type: 'stall' })
           setStatus((s) => (s === 'error' ? s : 'loading'))
           const v = videoRef.current
           if (v && live && modeRef.current === 'ts' && propsRef.current.prebufferSec > 0 && !holdRef.current && !v.paused) {
@@ -306,6 +317,7 @@ export default function Player(props: Props) {
         }}
         onError={() => {
           if (modeRef.current === 'native') {
+            propsRef.current.onDiag?.({ type: 'error', info: 'Biçim/codec desteklenmiyor' })
             setStatus('error')
             setMsg('Bu biçim veya codec yerleşik oynatıcıda desteklenmiyor (MKV, HEVC ve AC3 ses sık görülen nedenlerdir). Harici oynatıcıyı deneyin.')
           } else scheduleRetry()
@@ -315,7 +327,7 @@ export default function Player(props: Props) {
       {/* Üst çubuk */}
       <div className={`absolute top-0 inset-x-0 p-3 bg-gradient-to-b from-black/80 to-transparent transition-opacity ${ui ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         <div className="flex items-center gap-3">
-          {(!live || mini) && (
+          {(!live || mini || props.overlay) && (
             <button className="btn" onClick={props.onClose} title="Kapat">✕</button>
           )}
           <div className="min-w-0 flex-1">
@@ -384,6 +396,9 @@ export default function Player(props: Props) {
               <option value={-1}>Altyazı kapalı</option>
               {subs.map((a, i) => <option key={i} value={i}>{a}</option>)}
             </select>
+          )}
+          {live && props.onCatchup && (
+            <button className="btn" onClick={props.onCatchup} title="Geçmiş yayınları izle">⏪ Geçmiş</button>
           )}
           {live && props.onRecord && (
             <button className={`btn ${props.recording ? '!bg-red-600 hover:!bg-red-500' : ''}`} onClick={props.onRecord}

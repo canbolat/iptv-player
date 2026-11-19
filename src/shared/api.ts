@@ -1,5 +1,6 @@
 import type {
-  Detail, EpgNowNext, HistoryEntry, Item, Kind, PlayTarget, Profile, ProfileInput, RecInfo, Settings
+  CatchupEntry, Detail, EpgEntry, EpgNowNext, HistoryEntry, Item, Kind, PlayTarget, Profile, ProfileInput,
+  RecInfo, Schedule, Settings, UpdateStatus
 } from './types'
 
 export interface Api {
@@ -34,6 +35,23 @@ export interface Api {
   showRecordingFolder(id?: string, kind?: 'record' | 'download'): Promise<void>
   deleteRecording(id: string): Promise<void>
   pickFolder(): Promise<string | null>
+  epgRange(ids: string[], from: number, to: number): Promise<Record<string, EpgEntry[]>>
+  catchupList(profileId: string, streamId: number): Promise<CatchupEntry[]>
+  addSchedule(profileId: string, target: PlayTarget, title: string, startAt: number, minutes: number): Promise<Schedule>
+  listSchedules(): Promise<Schedule[]>
+  removeSchedule(id: string): Promise<void>
+  pinStatus(): Promise<boolean>
+  verifyPin(pin: string): Promise<boolean>
+  setPin(pin: string, oldPin?: string): Promise<void>
+  removePin(oldPin: string): Promise<void>
+  getLocks(profileId: string): Promise<string[]>
+  setLocks(profileId: string, groups: string[], pin?: string): Promise<void>
+  appVersion(): Promise<string>
+  updateStatus(): Promise<UpdateStatus>
+  checkUpdate(): Promise<UpdateStatus>
+  downloadUpdate(): Promise<void>
+  installUpdate(): Promise<void>
+  onUpdateStatus(cb: (s: UpdateStatus) => void): () => void
 }
 
 declare global {

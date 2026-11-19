@@ -1,7 +1,7 @@
 import Store from 'electron-store'
 import { safeStorage } from 'electron'
 import { DEFAULT_SETTINGS } from '../shared/types'
-import type { HistoryEntry, Profile, RecInfo, Settings } from '../shared/types'
+import type { HistoryEntry, Profile, RecInfo, Schedule, Settings } from '../shared/types'
 
 export interface StoredProfile extends Profile {
   passwordEnc?: string
@@ -13,10 +13,13 @@ interface Schema {
   favorites: Record<string, string[]>
   history: HistoryEntry[]
   records: RecInfo[]
+  schedules: Schedule[]
+  locks: Record<string, string[]>
+  pin?: { salt: string; hash: string }
 }
 
 export const store = new Store<Schema>({
-  defaults: { profiles: [], settings: DEFAULT_SETTINGS, favorites: {}, history: [], records: [] }
+  defaults: { profiles: [], settings: DEFAULT_SETTINGS, favorites: {}, history: [], records: [], schedules: [], locks: {} }
 })
 
 export function getSettings(): Settings {

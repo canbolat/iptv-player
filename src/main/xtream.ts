@@ -1,7 +1,8 @@
 import { fetchJson } from './net'
 import { decryptSecret, findProfile } from './store'
 import type { StoredProfile } from './store'
-import type { Detail, Episode, Item, Kind, PlayTarget } from '../shared/types'
+import type { CatchupEntry, Detail, Episode, Item, Kind, PlayTarget } from '../shared/types'
+import { catchupPath } from '../shared/catchup'
 
 type Raw = Record<string, any>
 
@@ -56,7 +57,8 @@ export async function loadXtream(profileId: string, kind: Kind): Promise<Item[]>
       if (kind === 'live') {
         out.push({
           id: `l-${s.stream_id}`, kind, name: String(s.name ?? 'Adsız'), logo: str(s.stream_icon),
-          group, streamId: Number(s.stream_id), tvgId: str(s.epg_channel_id)
+          group, streamId: Number(s.stream_id), tvgId: str(s.epg_channel_id),
+          archive: Number(s.tv_archive) === 1 ? Number(s.tv_archive_duration) || 1 : undefined
         })
       } else if (kind === 'vod') {
         out.push({
@@ -112,11 +114,38 @@ export async function xtreamDetail(profileId: string, kind: 'vod' | 'series', id
 
 export function resolveStreamUrl(profileId: string, t: PlayTarget, liveExt: string): string {
   if (t.url) return t.url
-  if (!t.xtream) throw new Error('Oynatılacak adres bulunamadı')
+  if (!t.xtream && !t.catchup) throw new Error('Oynatılacak adres bulunamadı')
   const p = findProfile(profileId)
   const user = encodeURIComponent(p.username || '')
   const pass = encodeURIComponent(decryptSecret(p.passwordEnc))
+  if (t.catchup) {
+    const c = t.catchup
+    return `${baseUrl(p)}${catchupPath(user, pass, c.minutes, c.start, c.streamId)}`
+  }
+  if (!t.xtream) throw new Error('Oynatılacak adres bulunamadı')
   const { type, id, ext } = t.xtream
   const e = ext || (type === 'live' ? liveExt : 'mp4')
   return `${baseUrl(p)}/${type}/${user}/${pass}/${id}.${e}`
+}
+
+const b64 = (x: unknown): string => {
+  const raw = String(x ?? '')
+  try {
+    const d = Buffer.from(raw, 'base64').toString('utf8')
+    return d && !d.includes('\uFFFD') ? d : raw
+  } catch { return raw }
+}
+
+/** Kanalın program listesi ve hangilerinin arşivde olduğu (geçmiş yayın için) */
+export async function catchupList(profileId: string, streamId: number): Promise<CatchupEntry[]> {
+  const p = findProfile(profileId)
+  const r = await fetchJson<Raw>(apiUrl(p, 'get_simple_data_table', { stream_id: streamId }))
+  return arr(r.epg_listings)
+    .map((e) => ({
+      title: b64(e.title), desc: str(e.description) ? b64(e.description) : undefined,
+      start: String(e.start ?? ''), startTs: Number(e.start_timestamp), stopTs: Number(e.stop_timestamp),
+      hasArchive: Number(e.has_archive) === 1
+    }))
+    .filter((e) => e.start && Number.isFinite(e.startTs) && Number.isFinite(e.stopTs))
+    .sort((a, b) => a.startTs - b.startTs)
 }

@@ -2,7 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { Item } from '../../../shared/types'
 import { norm } from '../../../shared/m3u'
-import { useStore } from '../store'
+import { NO_GROUPS, useStore } from '../store'
 import DetailModal from './DetailModal'
 import { ErrorBox, Logo, Spinner } from './ui'
 
@@ -10,7 +10,8 @@ const CARD_W = 168
 const ROW_H = 300
 
 export default function GridView({ kind }: { kind: 'vod' | 'series' }) {
-  const items = useStore((s) => s.items[kind])
+  const allItems = useStore((s) => s.items[kind])
+  const hidden = useStore((s) => (s.pinSet && !s.unlocked ? s.locks : NO_GROUPS))
   const loading = useStore((s) => s.loading[kind])
   const error = useStore((s) => s.error)
   const { loadKind } = useStore.getState()
@@ -30,6 +31,7 @@ export default function GridView({ kind }: { kind: 'vod' | 'series' }) {
     return () => ro.disconnect()
   }, [])
 
+  const items = useMemo(() => (hidden.length ? allItems.filter(((hs) => (i: { group: string }) => !hs.has(i.group))(new Set(hidden))) : allItems), [allItems, hidden])
   const cats = useMemo(() => [...new Set(items.map((i) => i.group))].sort((a, b) => a.localeCompare(b, 'tr')), [items])
   const list = useMemo(() => {
     const nq = norm(dq.trim())

@@ -1,12 +1,33 @@
 import { create } from 'zustand'
 import type {
-  HistoryEntry, Item, Kind, M3UResult, PlayTarget, Profile, ProfileInput, RecInfo, Settings
+  HistoryEntry, Item, Kind, M3UResult, PlayTarget, Profile, ProfileInput, RecInfo, Schedule, Settings
 } from '../../shared/types'
 import { groupSeries } from '../../shared/m3u'
 import { liveTarget } from './target'
 import { DEFAULT_SETTINGS } from '../../shared/types'
 
-export type Tab = 'live' | 'vod' | 'series' | 'continue' | 'recordings' | 'downloads' | 'settings'
+export type Tab = 'live' | 'vod' | 'series' | 'epg' | 'continue' | 'recordings' | 'downloads' | 'diagnostics' | 'settings'
+
+export interface DiagEntry {
+  title: string
+  mode: string
+  plays: number
+  stalls: number
+  retries: number
+  errors: number
+  dropped: number
+  lastError?: string
+  updated: number
+}
+export interface DiagEvent {
+  type: 'start' | 'stall' | 'retry' | 'error' | 'drops'
+  mode?: string
+  info?: string
+  value?: number
+}
+
+const cleanErr = (e: unknown) => (e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+export const NO_GROUPS: string[] = []
 
 export interface PlayState {
   target: PlayTarget
@@ -55,6 +76,12 @@ interface S {
   recordings: RecInfo[]
   /** Oynatılan adres -> kayıt kimliği */
   recMap: Record<string, string>
+  schedules: Schedule[]
+  pinSet: boolean
+  locks: string[]
+  unlocked: boolean
+  diag: Record<string, DiagEntry>
+  recDialog?: PlayTarget
 
   init(): Promise<void>
   selectProfile(id: string): Promise<void>
@@ -72,7 +99,17 @@ interface S {
   saveSettings(s: Partial<Settings>): Promise<void>
   setMini(on: boolean): Promise<void>
   refreshRecordings(): Promise<void>
-  startRecord(minutes: number): Promise<void>
+  startRecord(minutes: number, target?: PlayTarget): Promise<void>
+  setRecDialog(t?: PlayTarget): void
+  refreshSchedules(): Promise<void>
+  schedule(target: PlayTarget, startAt: number, minutes: number): Promise<void>
+  removeSchedule(id: string): Promise<void>
+  loadPin(): Promise<void>
+  unlock(pin: string): Promise<boolean>
+  lock(): void
+  playLocal(r: RecInfo): void
+  recordDiag(title: string, e: DiagEvent): void
+  clearDiag(): void
   stopRecord(): Promise<void>
   isRecording(url: string): boolean
 }
@@ -81,10 +118,15 @@ export const useStore = create<S>((set, get) => ({
   ready: false, profiles: [], settings: DEFAULT_SETTINGS, tab: 'live',
   items: empty(), loaded: flags(), loading: flags(), error: '', notice: '',
   favs: [], history: [], visibleLive: [], playError: '', mini: false, recordings: [], recMap: {},
+  schedules: [], pinSet: false, locks: [], unlocked: false, diag: {},
 
   async init() {
     const [profiles, settings] = await Promise.all([window.api.getProfiles(), window.api.getSettings()])
-    set({ profiles, settings, ready: true })
+    let diag: Record<string, DiagEntry> = {}
+    try {
+      for (const d of JSON.parse(localStorage.getItem('diag') || '[]') as DiagEntry[]) diag[d.title] = d
+    } catch { diag = {} }
+    set({ profiles, settings, ready: true, diag })
     let last: string | null = null
     try { last = localStorage.getItem('lastProfile') } catch { /* yok say */ }
     const id = profiles.find((p) => p.id === last)?.id ?? profiles[0]?.id
@@ -97,6 +139,7 @@ export const useStore = create<S>((set, get) => ({
     set({ activeId: id, items: empty(), loaded: flags(), loading: flags(), error: '', notice: '', tab: 'live', visibleLive: [] })
     const [favs, history] = await Promise.all([window.api.getFavorites(id), window.api.getHistory(id)])
     set({ favs, history })
+    await get().loadPin()
     await get().loadKind('live')
   },
 
@@ -207,7 +250,7 @@ export const useStore = create<S>((set, get) => ({
     const i = visibleLive.findIndex((x) => x.id === playing.itemId)
     const next = visibleLive[(i + delta + visibleLive.length) % visibleLive.length]
     if (!next) return
-    get().play(liveTarget(next), { itemId: next.id, overlay: false })
+    get().play(liveTarget(next), { itemId: next.id, overlay: playing.overlay })
   },
 
   saveProgress(pos, dur) {
@@ -241,16 +284,78 @@ export const useStore = create<S>((set, get) => ({
     set({ recordings: await window.api.listRecordings() })
   },
 
-  async startRecord(minutes) {
-    const { playing } = get()
-    if (!playing || playing.target.kind !== 'live') return
+  async startRecord(minutes, target) {
+    const { playing, activeId } = get()
+    const t = target ?? playing?.target
+    if (!t || t.kind !== 'live' || !activeId) return
     try {
-      const { id } = await window.api.startRecording(playing.url, playing.target.title, minutes)
-      set((s) => ({ recMap: { ...s.recMap, [playing.url]: id } }))
+      const url = playing && t === playing.target ? playing.url : await window.api.resolveUrl(activeId, t)
+      const { id } = await window.api.startRecording(url, t.title, minutes)
+      set((s) => ({ recMap: { ...s.recMap, [url]: id } }))
     } catch (e) {
-      alert((e as Error).message)
+      alert(cleanErr(e))
     }
     await get().refreshRecordings()
+  },
+
+  setRecDialog(t) { set({ recDialog: t }) },
+
+  async refreshSchedules() { set({ schedules: await window.api.listSchedules() }) },
+
+  async schedule(target, startAt, minutes) {
+    const { activeId } = get()
+    if (!activeId) return
+    try {
+      await window.api.addSchedule(activeId, target, target.title, startAt, minutes)
+    } catch (e) {
+      alert(cleanErr(e))
+    }
+    await get().refreshSchedules()
+  },
+
+  async removeSchedule(id) {
+    await window.api.removeSchedule(id)
+    await get().refreshSchedules()
+  },
+
+  async loadPin() {
+    const id = get().activeId
+    const [pinSet, locks] = await Promise.all([window.api.pinStatus(), id ? window.api.getLocks(id) : Promise.resolve([])])
+    set({ pinSet, locks })
+  },
+
+  async unlock(pin) {
+    const ok = await window.api.verifyPin(pin)
+    if (ok) set({ unlocked: true })
+    return ok
+  },
+
+  lock() { set({ unlocked: false }) },
+
+  playLocal(r) {
+    const ext = (/\.([a-z0-9]+)$/i.exec(r.file)?.[1] ?? 'mp4').toLowerCase()
+    const url = `iptvfile://rec/${r.id}.${ext}`
+    set({ playing: { target: { title: r.title, kind: 'vod', url }, url, startAt: 0, overlay: true } })
+  },
+
+  recordDiag(title, e) {
+    set((s) => {
+      const cur: DiagEntry = s.diag[title] ?? { title, mode: '', plays: 0, stalls: 0, retries: 0, errors: 0, dropped: 0, updated: 0 }
+      const n: DiagEntry = { ...cur, updated: Date.now() }
+      if (e.type === 'start') { n.plays++; n.mode = e.mode ?? n.mode }
+      else if (e.type === 'stall') n.stalls++
+      else if (e.type === 'retry') n.retries++
+      else if (e.type === 'error') { n.errors++; n.lastError = e.info }
+      else if (e.type === 'drops') n.dropped = Math.max(n.dropped, e.value ?? 0)
+      const diag = { ...s.diag, [title]: n }
+      try { localStorage.setItem('diag', JSON.stringify(Object.values(diag).slice(-300))) } catch { /* yok say */ }
+      return { diag }
+    })
+  },
+
+  clearDiag() {
+    try { localStorage.removeItem('diag') } catch { /* yok say */ }
+    set({ diag: {} })
   },
 
   async stopRecord() {

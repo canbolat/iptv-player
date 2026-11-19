@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { norm } from '../../../shared/m3u'
-import { useStore } from '../store'
+import { NO_GROUPS, useStore } from '../store'
 import { liveTarget } from '../target'
 import { ErrorBox, Logo, Spinner } from './ui'
 
@@ -9,19 +9,21 @@ const ALL = '__all__'
 const FAV = '__fav__'
 
 export default function LiveView() {
-  const items = useStore((s) => s.items.live)
+  const allItems = useStore((s) => s.items.live)
+  const hidden = useStore((s) => (s.pinSet && !s.unlocked ? s.locks : NO_GROUPS))
   const loading = useStore((s) => s.loading.live)
   const error = useStore((s) => s.error)
   const favs = useStore((s) => s.favs)
   const playing = useStore((s) => s.playing)
   const notice = useStore((s) => s.notice)
-  const { play, toggleFav, loadKind, setVisibleLive } = useStore.getState()
+  const { play, toggleFav, loadKind, setVisibleLive, setRecDialog } = useStore.getState()
 
   const [q, setQ] = useState('')
   const [cat, setCat] = useState(ALL)
   const dq = useDeferredValue(q)
   const parentRef = useRef<HTMLDivElement>(null)
 
+  const items = useMemo(() => (hidden.length ? allItems.filter(((hs) => (i: { group: string }) => !hs.has(i.group))(new Set(hidden))) : allItems), [allItems, hidden])
   const index = useMemo(() => items.map((it) => ({ it, n: norm(it.name) })), [items])
   const cats = useMemo(() => {
     const m = new Map<string, number>()
@@ -73,6 +75,8 @@ export default function LiveView() {
                   <div className="truncate text-sm">{it.name}</div>
                   <div className="truncate text-xs text-slate-500">{it.group}</div>
                 </div>
+                <button className="text-sm text-slate-600 hover:text-slate-300" title="Zamanlı kayıt"
+                  onClick={(e) => { e.stopPropagation(); setRecDialog(liveTarget(it)) }}>⏰</button>
                 <button className={`text-lg ${favSet.has(it.id) ? 'text-amber-400' : 'text-slate-600 hover:text-slate-300'}`}
                   onClick={(e) => { e.stopPropagation(); toggleFav(it.id) }}>★</button>
               </div>

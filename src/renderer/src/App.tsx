@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react'
 import type { Profile } from '../../shared/types'
 import { Tab, useStore } from './store'
+import { applyLanguage } from './i18nDom'
+import CatchupDialog from './components/CatchupDialog'
 import ContinueView from './components/ContinueView'
+import DiagnosticsView from './components/DiagnosticsView'
+import EpgGrid from './components/EpgGrid'
 import EpgInfo from './components/EpgInfo'
 import GridView from './components/GridView'
 import LiveView from './components/LiveView'
+import PinDialog from './components/PinDialog'
 import Player from './components/Player'
 import ProfileDialog from './components/ProfileDialog'
 import RecordDialog from './components/RecordDialog'
@@ -16,23 +21,28 @@ const LIST_W = 360
 
 const NAV: { tab: Tab; label: string; icon: string }[] = [
   { tab: 'live', label: 'Canlı TV', icon: '📺' },
+  { tab: 'epg', label: 'Rehber', icon: '📅' },
   { tab: 'vod', label: 'Filmler', icon: '🎬' },
   { tab: 'series', label: 'Diziler', icon: '🎞️' },
   { tab: 'continue', label: 'Devam Et', icon: '⏯️' },
   { tab: 'recordings', label: 'Kayıtlar', icon: '⏺️' },
   { tab: 'downloads', label: 'İndirilenler', icon: '⬇️' },
+  { tab: 'diagnostics', label: 'Tanılama', icon: '🩺' },
   { tab: 'settings', label: 'Ayarlar', icon: '⚙️' }
 ]
 
 export default function App() {
   const s = useStore()
   const [dialog, setDialog] = useState<{ profile?: Profile } | null>(null)
-  const [recDialog, setRecDialog] = useState(false)
+  const [catchup, setCatchup] = useState(false)
+  const [pinDlg, setPinDlg] = useState(false)
 
   useEffect(() => { s.init() }, [])
+  useEffect(() => { if (s.ready) applyLanguage(s.settings.language) }, [s.ready, s.settings.language])
   useEffect(() => {
     s.refreshRecordings()
-    const id = setInterval(() => s.refreshRecordings(), 2000)
+    s.refreshSchedules()
+    const id = setInterval(() => { s.refreshRecordings(); s.refreshSchedules() }, 2000)
     return () => clearInterval(id)
   }, [])
 
@@ -46,6 +56,12 @@ export default function App() {
 
   const external = async () => {
     if (!p) return
+    if (p.url.startsWith('iptvfile:')) {
+      const id = p.url.replace(/^iptvfile:\/\/rec\//, '').replace(/\.[a-z0-9]+$/i, '')
+      const r = await window.api.openRecording(id)
+      if (!r.ok) alert(r.error)
+      return
+    }
     const r = await window.api.openExternal(p.url)
     if (!r.ok) alert(r.error)
   }
@@ -67,7 +83,7 @@ export default function App() {
             {profile && <button className="btn" onClick={() => setDialog({ profile })} title="Profili düzenle">✎</button>}
           </div>
         </div>
-        <nav className="flex-1 px-2 space-y-1">
+        <nav className="flex-1 px-2 space-y-1 overflow-y-auto">
           {NAV.map((n) => (
             <button key={n.tab} onClick={() => s.setTab(n.tab)}
               className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center gap-2 ${s.tab === n.tab ? 'bg-accent/25 text-white' : 'text-slate-400 hover:bg-white/5'}`}>
@@ -75,6 +91,13 @@ export default function App() {
             </button>
           ))}
         </nav>
+        {s.pinSet && s.locks.length > 0 && (
+          <div className="mx-2 mb-2">
+            {s.unlocked
+              ? <button className="btn w-full text-xs" onClick={() => s.lock()}>🔓 Tekrar kilitle</button>
+              : <button className="btn w-full text-xs" onClick={() => setPinDlg(true)}>🔒 Kilitli içerik gizli · Aç</button>}
+          </div>
+        )}
         {activeRec + activeDl > 0 && (
           <div className="mx-2 mb-2 p-2 rounded-md bg-red-600/15 border border-red-600/40 text-xs space-y-1">
             {activeRec > 0 && (
@@ -111,11 +134,13 @@ export default function App() {
                 </div>
               </div>
             )}
+            {s.tab === 'epg' && <EpgGrid />}
             {s.tab === 'vod' && <GridView kind="vod" />}
             {s.tab === 'series' && <GridView kind="series" />}
             {s.tab === 'continue' && <ContinueView />}
             {s.tab === 'recordings' && <RecordingsView type="record" />}
             {s.tab === 'downloads' && <RecordingsView type="download" />}
+            {s.tab === 'diagnostics' && <DiagnosticsView />}
             {s.tab === 'settings' && <SettingsView onEdit={(pr) => setDialog({ profile: pr })} />}
           </>
         )}
@@ -141,15 +166,24 @@ export default function App() {
             bufferSec={s.settings.bufferSec}
             prebufferSec={s.settings.prebufferSec}
             recording={s.isRecording(p.url)}
-            onRecord={live ? () => (s.isRecording(p.url) ? s.stopRecord() : setRecDialog(true)) : undefined}
+            overlay={p.overlay}
+            onRecord={live ? () => (s.isRecording(p.url) ? s.stopRecord() : s.setRecDialog(p.target)) : undefined}
+            onCatchup={live && p.target.archive ? () => setCatchup(true) : undefined}
+            onDiag={(e) => s.recordDiag(p.target.title, e)}
           />
         </div>
       )}
 
-      {recDialog && p && (
-        <RecordDialog title={p.target.title} onClose={() => setRecDialog(false)}
-          onStart={(m) => { setRecDialog(false); s.startRecord(m) }} />
+      {s.recDialog && (
+        <RecordDialog
+          title={s.recDialog.title}
+          onClose={() => s.setRecDialog(undefined)}
+          onStart={(m) => { const t = s.recDialog!; s.setRecDialog(undefined); s.startRecord(m, t) }}
+          onSchedule={(at, m) => { const t = s.recDialog!; s.setRecDialog(undefined); s.schedule(t, at, m) }}
+        />
       )}
+      {catchup && p && <CatchupDialog target={p.target} onClose={() => setCatchup(false)} />}
+      {pinDlg && <PinDialog title="Kilitli içeriği aç" onSubmit={(pin) => s.unlock(pin)} onClose={() => setPinDlg(false)} />}
       {dialog && <ProfileDialog profile={dialog.profile} onClose={() => setDialog(null)} />}
     </div>
   )

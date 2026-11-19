@@ -57,3 +57,13 @@ export function clearEpgCache() {
   loadedUrl = ''
   try { rmSync(cachePath(), { force: true }) } catch { /* yok say */ }
 }
+
+/** Program rehberi ızgarası için: verilen kanalların [from, to] aralığındaki programları */
+export function epgRange(ids: string[], from: number, to: number): Record<string, EpgEntry[]> {
+  const out: Record<string, EpgEntry[]> = {}
+  for (const id of ids.slice(0, 200)) {
+    const list = guide.get(String(id).toLowerCase())
+    if (list) out[id] = list.filter((e) => e.stop > from && e.start < to)
+  }
+  return out
+}

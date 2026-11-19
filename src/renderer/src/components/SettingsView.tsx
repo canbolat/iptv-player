@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import type { Profile, Settings } from '../../../shared/types'
+import { useEffect, useMemo, useState } from 'react'
+import type { Profile, Settings, UpdateStatus } from '../../../shared/types'
 import { useStore } from '../store'
 
 export default function SettingsView({ onEdit }: { onEdit(p: Profile): void }) {
@@ -126,6 +126,10 @@ export default function SettingsView({ onEdit }: { onEdit(p: Profile): void }) {
           ))}
         </section>
 
+        <GeneralSection />
+        <ParentalSection />
+        <UpdateSection />
+
         <section className="space-y-2">
           <h2 className="font-medium">Önbellek</h2>
           <button className="btn" onClick={async () => { await window.api.clearCache(); flash('Önbellek temizlendi') }}>EPG ve ağ önbelleğini temizle</button>
@@ -134,5 +138,125 @@ export default function SettingsView({ onEdit }: { onEdit(p: Profile): void }) {
         {msg && <div className="fixed bottom-4 right-4 px-4 py-2 rounded-md bg-emerald-600 text-sm">{msg}</div>}
       </div>
     </div>
+  )
+}
+
+const clean = (e: unknown) => (e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+
+function GeneralSection() {
+  const settings = useStore((s) => s.settings)
+  const { saveSettings } = useStore.getState()
+  return (
+    <section className="space-y-2">
+      <h2 className="font-medium">Genel</h2>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={settings.closeToTray} onChange={(e) => saveSettings({ closeToTray: e.target.checked })} />
+        Pencereyi kapatınca sistem tepsisine küçült (kayıtlar ve zamanlı kayıtlar sürer)
+      </label>
+      <label className="text-sm text-slate-400 block pt-2">Dil / Language</label>
+      <select className="field max-w-xs" value={settings.language} onChange={(e) => saveSettings({ language: e.target.value as Settings['language'] })}>
+        <option value="tr">Türkçe</option>
+        <option value="en">English</option>
+      </select>
+    </section>
+  )
+}
+
+function ParentalSection() {
+  const pinSet = useStore((s) => s.pinSet)
+  const locks = useStore((s) => s.locks)
+  const activeId = useStore((s) => s.activeId)
+  const items = useStore((s) => s.items)
+  const { loadPin } = useStore.getState()
+  const [cur, setCur] = useState('')
+  const [next, setNext] = useState('')
+  const [filter, setFilter] = useState('')
+  const [sel, setSel] = useState<Set<string>>(new Set(locks))
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => setSel(new Set(locks)), [locks])
+  const groups = useMemo(
+    () => [...new Set([...items.live, ...items.vod, ...items.series].map((i) => i.group))].sort((a, b) => a.localeCompare(b, 'tr')),
+    [items])
+  const shown = groups.filter((g) => g.toLowerCase().includes(filter.toLowerCase())).slice(0, 300)
+  const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 3000) }
+  const run = async (fn: () => Promise<unknown>, ok: string) => {
+    try { await fn(); await loadPin(); setCur(''); setNext(''); flash(ok) } catch (e) { flash(clean(e)) }
+  }
+
+  return (
+    <section className="space-y-2">
+      <h2 className="font-medium">Ebeveyn kilidi</h2>
+      <p className="text-xs text-slate-500">Seçilen kategoriler PIN girilene kadar listelerden gizlenir. Kilit arayüz düzeyindedir; profilin kendisi korunmaz.</p>
+      {pinSet && (
+        <input className="field max-w-xs" type="password" inputMode="numeric" maxLength={8} placeholder="Mevcut PIN"
+          value={cur} onChange={(e) => setCur(e.target.value.replace(/\D/g, ''))} />
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <input className="field max-w-xs" type="password" inputMode="numeric" maxLength={8}
+          placeholder={pinSet ? 'Yeni PIN (4-8 rakam)' : 'PIN belirle (4-8 rakam)'}
+          value={next} onChange={(e) => setNext(e.target.value.replace(/\D/g, ''))} />
+        <button className="btn-primary" onClick={() => run(() => window.api.setPin(next, pinSet ? cur : undefined), 'PIN kaydedildi')}>
+          {pinSet ? 'PIN değiştir' : 'PIN belirle'}
+        </button>
+        {pinSet && <button className="btn" onClick={() => run(() => window.api.removePin(cur), 'PIN kaldırıldı')}>PIN kaldır</button>}
+      </div>
+
+      {pinSet && activeId && (
+        <div className="pt-2 space-y-2">
+          <div className="text-sm text-slate-400">Kilitlenecek kategoriler ({sel.size} seçili, mevcut profil)</div>
+          <input className="field max-w-xs" placeholder="Kategori ara" value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <div className="max-h-56 overflow-y-auto border border-line rounded-md divide-y divide-line">
+            {shown.length === 0 && <div className="p-3 text-sm text-slate-500">Kategori yok (içerik henüz yüklenmemiş olabilir).</div>}
+            {shown.map((g) => (
+              <label key={g} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-white/5">
+                <input type="checkbox" checked={sel.has(g)}
+                  onChange={(e) => setSel((o) => { const n = new Set(o); e.target.checked ? n.add(g) : n.delete(g); return n })} />
+                <span className="truncate">{g}</span>
+              </label>
+            ))}
+          </div>
+          <button className="btn-primary" onClick={() => run(() => window.api.setLocks(activeId, [...sel], cur), 'Kilitler kaydedildi')}>Kilitleri kaydet (mevcut PIN gerekir)</button>
+        </div>
+      )}
+      {msg && <div className="text-sm text-emerald-400">{msg}</div>}
+    </section>
+  )
+}
+
+function UpdateSection() {
+  const settings = useStore((s) => s.settings)
+  const { saveSettings } = useStore.getState()
+  const [ver, setVer] = useState('')
+  const [st, setSt] = useState<UpdateStatus>({ state: 'idle' })
+
+  useEffect(() => {
+    window.api.appVersion().then(setVer)
+    window.api.updateStatus().then(setSt)
+    return window.api.onUpdateStatus(setSt)
+  }, [])
+
+  const text: Record<UpdateStatus['state'], string> = {
+    idle: '', dev: 'Geliştirme modunda güncelleme denetlenmez.', checking: 'Denetleniyor…',
+    available: `Yeni sürüm var: ${st.version ?? ''}`, none: 'Uygulama güncel.',
+    downloading: `İndiriliyor… %${st.percent ?? 0}`, ready: `Sürüm ${st.version ?? ''} indirildi, yüklemeye hazır.`,
+    error: `Güncelleme denetlenemedi: ${st.message ?? ''}`
+  }
+  return (
+    <section className="space-y-2">
+      <h2 className="font-medium">Güncellemeler</h2>
+      <div className="text-sm text-slate-400">Sürüm {ver}</div>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={settings.autoUpdate} onChange={(e) => saveSettings({ autoUpdate: e.target.checked })} />
+        Açılışta güncellemeleri otomatik denetle
+      </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <button className="btn" onClick={() => window.api.checkUpdate().then(setSt)} disabled={st.state === 'checking' || st.state === 'downloading'}>Güncellemeleri denetle</button>
+        {st.state === 'available' && <button className="btn-primary" onClick={() => window.api.downloadUpdate()}>İndir</button>}
+        {st.state === 'ready' && <button className="btn-primary" onClick={() => window.api.installUpdate()}>Yeniden başlat ve yükle</button>}
+      </div>
+      {text[st.state] && <div className="text-sm text-slate-300">{text[st.state]}</div>}
+      <p className="text-xs text-slate-500">Otomatik güncelleme, sürümlerin GitHub Releases üzerinde herkese açık bir depodan yayınlanmasını gerektirir.</p>
+    </section>
   )
 }

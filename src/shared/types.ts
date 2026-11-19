@@ -20,6 +20,8 @@ export interface Item {
   localDetail?: Detail
   /** Stalker portal komutu */
   cmd?: string
+  /** Xtream geçmiş yayın (catch-up) gün sayısı */
+  archive?: number
 }
 
 export interface Profile {
@@ -68,6 +70,9 @@ export interface Settings {
   /** Dahili oynatıcı veya harici (mpv/VLC) */
   playerMode: 'internal' | 'external'
   externalArgs: string
+  closeToTray: boolean
+  autoUpdate: boolean
+  language: 'tr' | 'en'
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -81,7 +86,10 @@ export const DEFAULT_SETTINGS: Settings = {
   bufferSec: 30,
   prebufferSec: 4,
   playerMode: 'internal',
-  externalArgs: ''
+  externalArgs: '',
+  closeToTray: false,
+  autoUpdate: true,
+  language: 'tr'
 }
 
 export interface EpgEntry {
@@ -108,6 +116,10 @@ export interface PlayTarget {
   tvgId?: string
   /** Stalker: komut ve (varsa) bölüm numarası */
   stalker?: { type: 'itv' | 'vod'; cmd: string; series?: number }
+  /** Xtream geçmiş yayın: sunucu saatiyle başlangıç (YYYY-MM-DD:HH-mm) ve dakika */
+  catchup?: { streamId: number; start: string; minutes: number }
+  /** Kanalın geçmiş yayın desteği var mı */
+  archive?: boolean
 }
 
 export interface HistoryEntry {
@@ -163,4 +175,33 @@ export interface RecInfo {
   reconnects?: number
   status: 'queued' | 'recording' | 'done' | 'error' | 'cancelled'
   error?: string
+}
+
+export interface Schedule {
+  id: string
+  profileId: string
+  target: PlayTarget
+  title: string
+  startAt: number
+  /** 0 = elle durdurulur */
+  minutes: number
+  status: 'pending' | 'started' | 'missed' | 'error'
+  error?: string
+}
+
+export interface CatchupEntry {
+  title: string
+  desc?: string
+  /** Sunucu saatiyle başlangıç metni */
+  start: string
+  startTs: number
+  stopTs: number
+  hasArchive: boolean
+}
+
+export interface UpdateStatus {
+  state: 'idle' | 'dev' | 'checking' | 'available' | 'none' | 'downloading' | 'ready' | 'error'
+  version?: string
+  percent?: number
+  message?: string
 }

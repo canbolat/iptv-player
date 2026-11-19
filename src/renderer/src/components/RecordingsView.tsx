@@ -11,6 +11,8 @@ const hhmm = (t: number) => new Date(t).toLocaleTimeString('tr-TR', { hour: '2-d
 export default function RecordingsView({ type }: { type: 'record' | 'download' }) {
   const all = useStore((s) => s.recordings)
   const refresh = useStore((s) => s.refreshRecordings)
+  const schedules = useStore((s) => s.schedules)
+  const { removeSchedule, playLocal } = useStore.getState()
   const list = all.filter((r) => r.type === type)
   const isRec = type === 'record'
   const act = async (fn: () => Promise<unknown>) => { await fn(); await refresh() }
@@ -22,6 +24,25 @@ export default function RecordingsView({ type }: { type: 'record' | 'download' }
         <button className="btn" onClick={() => window.api.showRecordingFolder(undefined, type)}>📂 Klasörü aç</button>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {isRec && schedules.length > 0 && (
+          <div className="space-y-2 pb-2">
+            <div className="text-xs uppercase tracking-wide text-slate-500">Zamanlanmış kayıtlar</div>
+            {schedules.map((sc) => (
+              <div key={sc.id} className="p-3 rounded-lg bg-panel border border-line flex items-center gap-3">
+                <span className="text-lg">{sc.status === 'pending' ? '⏰' : sc.status === 'started' ? '✅' : sc.status === 'missed' ? '⚠️' : '❌'}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm truncate">{sc.title}</div>
+                  <div className="text-xs text-slate-500">
+                    {new Date(sc.startAt).toLocaleString('tr-TR')} · {sc.minutes ? `${sc.minutes} dk` : 'elle durdurulacak'} ·{' '}
+                    {{ pending: 'bekliyor', started: 'başladı', missed: 'kaçırıldı (uygulama kapalıydı)', error: 'hata' }[sc.status]}
+                  </div>
+                  {sc.error && <div className="text-xs text-red-400">{sc.error}</div>}
+                </div>
+                <button className="btn" onClick={() => removeSchedule(sc.id)}>{sc.status === 'pending' ? 'İptal' : 'Kaldır'}</button>
+              </div>
+            ))}
+          </div>
+        )}
         {list.length === 0 && (
           <div className="text-sm text-slate-500 max-w-lg">
             {isRec
@@ -52,7 +73,8 @@ export default function RecordingsView({ type }: { type: 'record' | 'download' }
                   </button>
                 ) : (
                   <>
-                    {r.bytes > 0 && r.file && <button className="btn" onClick={async () => { const x = await window.api.openRecording(r.id); if (!x.ok) alert(x.error) }}>▶ Aç</button>}
+                    {r.bytes > 0 && r.file && <button className="btn" title="Uygulamada oynat" onClick={() => playLocal(r)}>▶ İzle</button>}
+                    {r.bytes > 0 && r.file && <button className="btn" title="Varsayılan oynatıcıda aç" onClick={async () => { const x = await window.api.openRecording(r.id); if (!x.ok) alert(x.error) }}>Aç</button>}
                     {r.file && <button className="btn" title="Klasörde göster" onClick={() => window.api.showRecordingFolder(r.id, type)}>📂</button>}
                     <button className="btn" title="Sil" onClick={() => { if (confirm('Dosya silinsin mi?')) act(() => window.api.deleteRecording(r.id)) }}>🗑</button>
                   </>

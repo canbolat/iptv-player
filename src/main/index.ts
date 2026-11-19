@@ -1,7 +1,8 @@
-import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, net, protocol, session, shell } from 'electron'
+import { pathToFileURL } from 'url'
 import { unlink } from 'fs/promises'
 import { spawn } from 'child_process'
-import { readFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { basename, join } from 'path'
 import { randomUUID } from 'crypto'
 import {
@@ -9,15 +10,24 @@ import {
 } from './store'
 import type { StoredProfile } from './store'
 import { fetchText } from './net'
-import { loadXtream, resolveStreamUrl, xtreamDetail, xtreamEpgUrl } from './xtream'
-import { clearEpgCache, loadEpg, nowNext } from './epg'
+import { catchupList, loadXtream, resolveStreamUrl, xtreamDetail, xtreamEpgUrl } from './xtream'
+import { clearEpgCache, epgRange, loadEpg, nowNext } from './epg'
 import {
   activeCount, downloadDir, findRecording, forgetRecording, listRecordings, recordDir,
   startDownload, startRecording, stopAll, stopRecording
 } from './recorder'
+import { addSchedule, listSchedules, pendingCount, removeSchedule, startScheduler } from './scheduler'
+import { getLocks, hasPin, removePin, setLocks, setPin, verifyPin } from './pin'
+import { appIcon, hideToTray } from './tray'
+import { checkUpdate, downloadUpdate, getUpdateStatus, initUpdater, installUpdate } from './updater'
 import { clearStalkerSession, loadStalker, stalkerLink } from './stalker'
 import { isValidMac, normalizeMac } from '../shared/stalker'
 import type { HistoryEntry, Kind, PlayTarget, ProfileInput, Settings } from '../shared/types'
+
+// Kayıt/indirme dosyalarını uygulama içinde oynatmak için özel şema (id ile erişilir, yol açığa çıkmaz)
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'iptvfile', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: true } }
+])
 
 // Donanım hızlandırma ayarı uygulama hazır olmadan uygulanmalı
 if (!getSettings().hwAccel) app.disableHardwareAcceleration()
@@ -26,11 +36,12 @@ const DEV_URL = process.env['ELECTRON_RENDERER_URL']
 let win: BrowserWindow | null = null
 let savedBounds: Electron.Rectangle | null = null
 let quitting = false
+const quitApp = () => { quitting = true; app.quit() }
 
 function createWindow() {
   win = new BrowserWindow({
     width: 1360, height: 840, minWidth: 900, minHeight: 560,
-    backgroundColor: '#0b0d12', autoHideMenuBar: true, title: 'IPTV Player',
+    backgroundColor: '#0b0d12', autoHideMenuBar: true, title: 'IPTV Player', icon: appIcon(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true, nodeIntegration: false, sandbox: true,
@@ -41,14 +52,18 @@ function createWindow() {
     if (!DEV_URL || !url.startsWith(DEV_URL)) e.preventDefault()
   })
   win.on('close', (e) => {
-    if (quitting || activeCount() === 0) return
+    if (quitting) return
+    const toTray = () => hideToTray(win!, quitApp)
+    if (getSettings().closeToTray) { e.preventDefault(); toTray(); return }
+    const busy = activeCount() + pendingCount()
+    if (busy === 0) return
     const choice = dialog.showMessageBoxSync(win!, {
-      type: 'question', title: 'Aktif kayıt veya indirme var',
-      message: `${activeCount()} kayıt/indirme sürüyor.`,
-      detail: 'Çıkarsanız durdurulur. Küçültürseniz arka planda devam eder.',
-      buttons: ['Küçült (arka planda sürsün)', 'Çık ve durdur', 'Vazgeç'], defaultId: 0, cancelId: 2
+      type: 'question', title: 'Aktif kayıt, indirme veya zamanlı kayıt var',
+      message: `${activeCount()} kayıt/indirme sürüyor, ${pendingCount()} zamanlı kayıt bekliyor.`,
+      detail: 'Çıkarsanız durdurulur ve zamanlı kayıtlar çalışmaz. Tepsiye küçültürseniz arka planda devam eder.',
+      buttons: ['Tepsiye küçült (arka planda sürsün)', 'Çık ve durdur', 'Vazgeç'], defaultId: 0, cancelId: 2
     })
-    if (choice === 0) { e.preventDefault(); win!.minimize() }
+    if (choice === 0) { e.preventDefault(); toTray() }
     else if (choice === 2) e.preventDefault()
   })
   if (DEV_URL) win.loadURL(DEV_URL)
@@ -87,7 +102,7 @@ function setupSession() {
     if (app.isPackaged && d.resourceType === 'mainFrame') {
       headers['Content-Security-Policy'] = [
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-        "img-src * data: blob:; media-src * blob:; connect-src *; worker-src 'self' blob:; " +
+        "img-src * data: blob:; media-src * blob: iptvfile:; connect-src *; worker-src 'self' blob:; " +
         "object-src 'none'; base-uri 'none'"
       ]
     }
@@ -260,13 +275,50 @@ function setupIpc() {
     return r.canceled ? null : r.filePaths[0]
   })
 
+  handle('epg:range', (ids: string[], from: number, to: number) =>
+    Array.isArray(ids) ? epgRange(ids.map(String), Number(from), Number(to)) : {})
+  handle('catchup:list', (profileId: string, streamId: number) => catchupList(profileId, Number(streamId)))
+
+  handle('schedule:add', (profileId: string, target: PlayTarget, title: string, startAt: number, minutes: number) => {
+    if (!isStr(profileId) || !isStr(title) || !target) throw new Error('Geçersiz zamanlama')
+    findProfile(profileId)
+    return addSchedule(profileId, target, title, Number(startAt), Number(minutes))
+  })
+  handle('schedule:list', () => listSchedules())
+  handle('schedule:remove', (id: string) => removeSchedule(String(id)))
+
+  handle('pin:status', () => hasPin())
+  handle('pin:verify', (pin: string) => verifyPin(pin))
+  handle('pin:set', (pin: string, oldPin?: string) => setPin(pin, oldPin))
+  handle('pin:remove', (oldPin: string) => removePin(oldPin))
+  handle('locks:get', (profileId: string) => getLocks(String(profileId)))
+  handle('locks:set', (profileId: string, groups: string[], pin?: string) =>
+    setLocks(String(profileId), Array.isArray(groups) ? groups : [], pin))
+
+  handle('app:version', () => app.getVersion())
+  handle('update:status', () => getUpdateStatus())
+  handle('update:check', () => checkUpdate())
+  handle('update:download', () => downloadUpdate())
+  handle('update:install', () => installUpdate())
+
   handle('app:relaunch', () => { app.relaunch(); app.exit(0) })
 }
 
 app.whenReady().then(() => {
   setupSession()
   setupIpc()
+  protocol.handle('iptvfile', (req) => {
+    // iptvfile://rec/<kayıt-id>.<uzantı>
+    const u = new URL(req.url)
+    const id = decodeURIComponent(u.pathname).replace(/^\//, '').replace(/\.[a-z0-9]+$/i, '')
+    const r = findRecording(id)
+    if (!r || !r.file || !existsSync(r.file)) return new Response('Bulunamadı', { status: 404 })
+    return net.fetch(pathToFileURL(r.file).toString(), { headers: req.headers })
+  })
   createWindow()
+  startScheduler((pid, t) => resolveTarget(pid, t))
+  initUpdater(() => win, () => { quitting = true })
+  if (getSettings().autoUpdate) setTimeout(() => { checkUpdate() }, 20_000)
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
 app.on('before-quit', () => { quitting = true; stopAll() })
