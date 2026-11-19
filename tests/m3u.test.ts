@@ -137,3 +137,15 @@ test('stalker: komut ön ekini temizleme', () => {
   assert.equal(stripCmd('ffrt3 http://s/ch/5'), 'http://s/ch/5')
   assert.equal(stripCmd('http://s/direct'), 'http://s/direct')
 })
+
+import { catchupMinutes, catchupPath, formatCatchupStart } from '../src/shared/catchup.ts'
+
+test('catch-up: başlangıç biçimi ve süre', () => {
+  assert.equal(formatCatchupStart('2024-05-01 20:00:00'), '2024-05-01:20-00')
+  assert.equal(formatCatchupStart('2024-05-01T07:05:00'), '2024-05-01:07-05')
+  assert.equal(formatCatchupStart('bozuk'), null)
+  assert.equal(catchupMinutes(0, 3600), 60)
+  assert.equal(catchupMinutes(0, 3601), 61)
+  assert.equal(catchupMinutes(10, 10), 1)
+  assert.equal(catchupPath('u', 'p', 60, '2024-05-01:20-00', 7), '/timeshift/u/p/60/2024-05-01:20-00/7.ts')
+})
