@@ -20,7 +20,7 @@ npm install
 npm test
 npm run dist
 ```
-Çıktı: `release\IPTV Player-Setup-0.3.0.exe`
+Çıktı: `release\IPTV Player-Setup-0.4.0.exe`
 
 Notlar:
 - Kod imzası olmadığı için Windows SmartScreen "Bilinmeyen yayıncı" uyarısı verebilir. "Ek bilgi → Yine de çalıştır" ile açılır. Uyarısız dağıtım için kod imzalama sertifikası gerekir.
@@ -32,6 +32,20 @@ Notlar:
 2. Canlı TV: arama, kategori, ★ favori. Film/Dizi: Xtream profillerinde.
 3. Kısayollar: **Boşluk** oynat/duraklat · **F** tam ekran · **M** sessiz · **↑/↓** kanal değiştir · **←/→** 10 sn geri/ileri (film/dizi).
 4. Oynatılamayan biçimler (MKV/HEVC/AC3) için Ayarlar'da `vlc.exe` veya `mpv.exe` yolunu verip "Harici oynatıcıda aç" kullanın.
+
+## Özellikler (özet)
+- **Kaynaklar:** M3U/M3U8 (URL/dosya), Xtream Codes, Stalker (MAC). M3U'da canlı/film/dizi otomatik ayrılır.
+- **Oynatma:** hls.js / mpegts.js, tampon ve biriktirme ayarları, harici oynatıcı (mpv/VLC), mini oynatıcı.
+- **Kayıt:** anında veya zamanlı başlatma, süreli/elle durdurma, kopunca yeniden bağlanma, tepsiye küçültme.
+- **İndirme:** film/dizi/sezon indirme, kuyruk, kaldığı yerden devam. Kayıt ve indirmeler uygulama içinde izlenebilir.
+- **Rehber (EPG ızgarası)**, **geçmiş yayın (Xtream catch-up)**, **ebeveyn kilidi (PIN)**, **tanılama ekranı**, **Türkçe/İngilizce**.
+- **Otomatik güncelleme:** aşağıya bakın.
+
+## Otomatik güncelleme
+Yalnızca GitHub Releases üzerinden ve **herkese açık (public)** bir depoyla çalışır (özel depo için jeton gerekir, uygulamaya gömülmez).
+1. `package.json` içindeki `version` değerini artırın (örn. `0.4.1`).
+2. Depoda `v0.4.1` etiketiyle bir sürüm oluşturun (Releases → Draft a new release → yeni etiket yazın → Publish).
+3. "Sürüm yayınla" akışı kurulum dosyasını ve `latest.yml` dosyasını sürüme yükler; kurulu uygulamalar bir sonraki denetimde yeni sürümü görür.
 
 ## Proje yapısı
 Ayrıntılar için `CLAUDE.md`.

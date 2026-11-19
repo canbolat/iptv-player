@@ -32,10 +32,17 @@ Electron + React + TypeScript + Tailwind CSS ile yazılmış, karanlık temalı 
 - Kayıt/indirme (`main/recorder.ts`): kayıt kopunca yeniden bağlanır, zamanlı durdurma (`stopAt`), uyku engelleyici (powerSaveBlocker), indirme kuyruğu (en fazla 2), Range ile devam. Pencere kapatılırken aktif iş varsa kullanıcıya sorulur. Biten kayıtlar `electron-store` içinde (`records`) saklanır.
 - Stalker (`main/stalker.ts`, `shared/stalker.ts`): MAC ile el sıkışma + Bearer jeton; canlı TV tam, film/dizi deneyseldir. Yayın adresleri geçicidir; oynatma/indirme anında `create_link` ile çözülür.
 
+- Zamanlı kayıt (`main/scheduler.ts`): 15 sn'de bir denetim; adres başlama anında çözülür; 10 dk'dan fazla kaçırılan kayıt `missed` olur.
+- Geçmiş yayın: yalnızca Xtream (`get_simple_data_table` + `/timeshift/` adresi, sunucu saatiyle başlangıç). M3U `catchup` öznitelikleri henüz kullanılmıyor.
+- Ebeveyn kilidi (`main/pin.ts`): PIN scrypt ile saklanır; kilit kategori gizleme olarak arayüz düzeyindedir.
+- Dil: `shared/i18n.ts` sözlüğü + `renderer/src/i18nDom.ts` DOM çevirici. Yeni arayüz metni eklenince sözlüğe İngilizcesi de eklenmeli (`tests/i18n.test.ts`).
+- Tepsi/simge: `build/icon.*` ve `main/trayIcon.ts` (üretilmiş PNG). Güncelleme: `main/updater.ts` (electron-updater, GitHub Releases).
+- Yerel oynatma: `iptvfile://rec/<id>.<uzantı>` özel şeması (`main/index.ts`), yalnızca bilinen kayıt kimlikleri için dosya sunar.
+
 ## Bilinen sınırlar / yapılacaklar
 - MKV, HEVC, AC3/E-AC3 yerleşik oynatıcıda garanti değil → "Harici oynatıcıda aç".
 - Stalker gerçek bir portala karşı denenmedi; sağlayıcıya göre uç nokta/alan farkları olabilir.
 - Veri depolama şimdilik `electron-store` (JSON) + `epg-cache.json`; çok büyük EPG/kanal setleri için better-sqlite3'e geçiş planlı.
 - EPG ayrıştırıcı regex tabanlıdır ve dosyayı belleğe alır; çok büyük XMLTV için akışlı ayrıştırıcıya geçilecek.
 - Şifreli HLS ve fMP4 kaydedilemez.
-- Catch-up/timeshift, ebeveyn kilidi, çoklu dil, otomatik güncelleme henüz yok.
+- Dil çevirisi sözlük tabanlıdır; tarih biçimleri ve ana süreç iletileri (pencere/hata metinleri) Türkçe kalır.
