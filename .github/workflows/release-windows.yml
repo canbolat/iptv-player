@@ -1,0 +1,26 @@
+name: Sürüm yayınla (otomatik güncelleme için)
+
+# Depoda "v0.4.0" gibi bir etiket (tag) oluşturulunca çalışır.
+# Etiket numarası package.json içindeki "version" ile aynı olmalıdır (başına v konur).
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm test
+      - run: npm run dist -- --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
