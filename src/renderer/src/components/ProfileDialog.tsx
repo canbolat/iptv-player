@@ -39,8 +39,8 @@ export default function ProfileDialog({ profile, onClose }: { profile?: Profile;
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onMouseDown={onClose}>
-      <div className="w-full max-w-lg bg-panel border border-line rounded-xl p-5 space-y-4" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onMouseDown={onClose}>
+      <div className="w-full max-w-lg bg-panel border border-line rounded-xl shadow-2xl modal-in p-5 space-y-4" onMouseDown={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-semibold">{profile ? 'Profili düzenle' : 'Yeni profil'}</h2>
 
         <div className="flex gap-2">
@@ -58,7 +58,7 @@ export default function ProfileDialog({ profile, onClose }: { profile?: Profile;
           <>
             <input className="field" placeholder="Playlist URL (http/https)" value={url} disabled={!!path}
               onChange={(e) => setUrl(e.target.value)} />
-            <div className="flex items-center gap-2 text-sm text-slate-400">
+            <div className="flex items-center gap-2 text-sm text-ink/60">
               <button className="btn" onClick={pick}>Dosya seç…</button>
               <span className="truncate flex-1">{path || 'veya yerel .m3u/.m3u8 dosyası'}</span>
               {path && <button className="btn" onClick={() => setPath('')}>Temizle</button>}
@@ -68,7 +68,7 @@ export default function ProfileDialog({ profile, onClose }: { profile?: Profile;
           <>
             <input className="field" placeholder="Portal URL (örn. http://portal.example:8080/c/)" value={server} onChange={(e) => setServer(e.target.value)} />
             <input className="field" placeholder="MAC adresi (00:1A:79:XX:XX:XX)" value={mac} onChange={(e) => setMac(e.target.value)} />
-            <p className="text-xs text-slate-500">Canlı TV desteklenir; film ve dizi deneyseldir. MAC adresi sağlayıcınızda kayıtlı olmalıdır.</p>
+            <p className="text-xs text-ink/45">Canlı TV desteklenir; film ve dizi deneyseldir. MAC adresi sağlayıcınızda kayıtlı olmalıdır.</p>
           </>
         ) : (
           <>
@@ -82,7 +82,7 @@ export default function ProfileDialog({ profile, onClose }: { profile?: Profile;
         )}
 
         <input className="field" placeholder="EPG (XMLTV) URL, isteğe bağlı" value={epgUrl} onChange={(e) => setEpgUrl(e.target.value)} />
-        {type === 'xtream' && <p className="text-xs text-slate-500">EPG boş bırakılırsa hesabın kendi XMLTV adresi otomatik kullanılır.</p>}
+        {type === 'xtream' && <p className="text-xs text-ink/45">EPG boş bırakılırsa hesabın kendi XMLTV adresi otomatik kullanılır.</p>}
 
         {err && <div className="text-sm text-red-400">{err}</div>}
         <div className="flex justify-end gap-2">

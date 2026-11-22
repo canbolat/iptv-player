@@ -42,30 +42,30 @@ export default function CatchupDialog({ target, onClose }: { target: PlayTarget;
   }
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4" onMouseDown={onClose}>
-      <div className="w-full max-w-2xl max-h-[85vh] flex flex-col bg-panel border border-line rounded-xl" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onMouseDown={onClose}>
+      <div className="w-full max-w-2xl max-h-[85vh] flex flex-col bg-panel border border-line rounded-xl shadow-2xl modal-in" onMouseDown={(e) => e.stopPropagation()}>
         <div className="p-4 border-b border-line flex items-center gap-3">
           <div className="flex-1 min-w-0">
             <h2 className="font-semibold">Geçmiş yayınlar</h2>
-            <div className="text-xs text-slate-500 truncate">{target.title}</div>
+            <div className="text-xs text-ink/45 truncate">{target.title}</div>
           </div>
           <button className="btn" onClick={onClose}>✕</button>
         </div>
         <div className="flex-1 overflow-y-auto p-3">
           {!list && !err && <div className="h-40"><Spinner label="Program listesi alınıyor…" /></div>}
           {err && <div className="p-4 text-sm text-red-400">{err}</div>}
-          {list && days.length === 0 && <div className="p-4 text-sm text-slate-500">Bu kanal için geçmiş program bilgisi bulunamadı.</div>}
+          {list && days.length === 0 && <div className="p-4 text-sm text-ink/45">Bu kanal için geçmiş program bilgisi bulunamadı.</div>}
           {days.map(([d, entries]) => (
             <div key={d} className="mb-4">
-              <div className="text-xs uppercase tracking-wide text-slate-500 px-2 mb-1">{d}</div>
+              <div className="text-xs uppercase tracking-wide text-ink/45 px-2 mb-1">{d}</div>
               <div className="divide-y divide-line border border-line rounded-lg">
                 {entries.map((e) => (
                   <div key={e.startTs}
-                    className={`flex items-center gap-3 p-2.5 ${e.hasArchive ? 'hover:bg-white/5 cursor-pointer' : 'opacity-40'}`}
+                    className={`flex items-center gap-3 p-2.5 ${e.hasArchive ? 'hover:bg-ink/5 cursor-pointer' : 'opacity-40'}`}
                     onClick={() => e.hasArchive && watch(e)} title={e.desc}>
-                    <div className="w-24 text-xs text-slate-400 tabular-nums">{hhmm(e.startTs)}–{hhmm(e.stopTs)}</div>
+                    <div className="w-24 text-xs text-ink/60 tabular-nums">{hhmm(e.startTs)}–{hhmm(e.stopTs)}</div>
                     <div className="flex-1 min-w-0 text-sm truncate">{e.title}</div>
-                    {e.hasArchive ? <span className="text-accent">▶</span> : <span className="text-xs text-slate-600">arşivde yok</span>}
+                    {e.hasArchive ? <span className="text-accent">▶</span> : <span className="text-xs text-ink/30">arşivde yok</span>}
                   </div>
                 ))}
               </div>

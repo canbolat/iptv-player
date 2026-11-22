@@ -12,8 +12,8 @@ export default function PinDialog({ title = 'PIN girin', onSubmit, onClose }: {
     if (!(await onSubmit(pin))) { setErr('PIN yanlış'); setPin('') } else onClose()
   }
   return (
-    <div className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center p-4" onMouseDown={onClose}>
-      <div className="w-full max-w-xs bg-panel border border-line rounded-xl p-5 space-y-3" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onMouseDown={onClose}>
+      <div className="w-full max-w-xs bg-panel border border-line rounded-xl shadow-2xl modal-in p-5 space-y-3" onMouseDown={(e) => e.stopPropagation()}>
         <h2 className="font-semibold">🔒 {title}</h2>
         <input className="field text-center tracking-[0.5em]" type="password" inputMode="numeric" autoFocus maxLength={8}
           value={pin} onChange={(e) => { setPin(e.target.value.replace(/\D/g, '')); setErr('') }}

@@ -70,6 +70,12 @@ export interface Settings {
   /** Dahili oynatıcı veya harici (mpv/VLC) */
   playerMode: 'internal' | 'external'
   externalArgs: string
+  /** Oynatma boru hattı: tarayıcı (hızlı) veya ffmpeg ara katmanı (kararlı) */
+  pipeline: 'native' | 'ffmpeg'
+  ffmpegVideo: 'auto' | 'copy' | 'transcode'
+  theme: 'dark' | 'amoled' | 'light' | 'system'
+  accent: 'indigo' | 'blue' | 'sky' | 'emerald' | 'rose' | 'amber' | 'violet'
+  density: 'normal' | 'compact'
   closeToTray: boolean
   autoUpdate: boolean
   language: 'tr' | 'en'
@@ -87,6 +93,11 @@ export const DEFAULT_SETTINGS: Settings = {
   prebufferSec: 4,
   playerMode: 'internal',
   externalArgs: '',
+  pipeline: 'native',
+  ffmpegVideo: 'auto',
+  theme: 'dark',
+  accent: 'indigo',
+  density: 'normal',
   closeToTray: false,
   autoUpdate: true,
   language: 'tr'
@@ -204,4 +215,10 @@ export interface UpdateStatus {
   version?: string
   percent?: number
   message?: string
+}
+
+export interface AppMetrics {
+  cpu: { renderer: number; gpu: number; main: number; other: number }
+  videoDecode: string
+  gpuCompositing: string
 }

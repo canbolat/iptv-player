@@ -2,13 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---- Tema değişkenleri (RGB kanalları; Tailwind /opacity ile uyumlu) ---- */
+:root,
+[data-theme='dark'] {
+  --bg: 11 13 18; --panel: 18 21 28; --line: 34 40 52; --ink: 255 255 255;
+}
+[data-theme='amoled'] {
+  --bg: 0 0 0; --panel: 9 9 11; --line: 30 30 36; --ink: 255 255 255;
+}
+[data-theme='light'] {
+  --bg: 242 244 248; --panel: 255 255 255; --line: 223 227 235; --ink: 15 23 42;
+}
+/* Vurgu rengi: tema bloklarının dışında tutulur ki oynatıcı gibi iç içe koyu alanlarda da geçerli olsun */
+:root { --accent: 99 102 241; }
+html[data-accent='blue'] { --accent: 59 130 246; }
+html[data-accent='sky'] { --accent: 14 165 233; }
+html[data-accent='emerald'] { --accent: 16 185 129; }
+html[data-accent='rose'] { --accent: 244 63 94; }
+html[data-accent='amber'] { --accent: 217 119 6; }
+html[data-accent='violet'] { --accent: 139 92 246; }
+
 html, body, #root { height: 100%; margin: 0; overflow: hidden; }
-body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; user-select: none; }
-input, select, button { font: inherit; }
+body {
+  font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  user-select: none; background: rgb(var(--bg)); color: rgb(var(--ink) / 0.9);
+  -webkit-font-smoothing: antialiased;
+}
+input, select, button { font: inherit; color: inherit; }
 input, select, textarea { user-select: text; }
+select option { background: rgb(var(--panel)); color: rgb(var(--ink)); }
+::selection { background: rgb(var(--accent) / 0.35); }
+:focus-visible { outline: 2px solid rgb(var(--accent) / 0.85); outline-offset: 2px; border-radius: 6px; }
+input[type='range'] { accent-color: rgb(var(--accent)); }
+input[type='checkbox'] { accent-color: rgb(var(--accent)); }
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: #2a3140; border-radius: 6px; }
-::-webkit-scrollbar-thumb:hover { background: #3a4458; }
-.btn { @apply px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 text-sm transition-colors; }
-.btn-primary { @apply px-3 py-1.5 rounded-md bg-accent hover:bg-indigo-500 text-white text-sm transition-colors; }
-.field { @apply w-full px-3 py-2 rounded-md bg-bg border border-line text-sm outline-none focus:border-accent; }
+::-webkit-scrollbar-thumb { background: rgb(var(--ink) / 0.16); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--ink) / 0.3); background-clip: content-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+@keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+.modal-in { animation: modal-in 0.16s ease-out; }
+
+.btn { @apply px-3 py-1.5 rounded-md bg-ink/10 hover:bg-ink/20 text-sm transition-colors active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none; }
+.btn-primary { @apply px-3 py-1.5 rounded-md bg-accent hover:brightness-110 text-white text-sm font-medium transition active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none; }
+.field { @apply w-full px-3 py-2 rounded-md bg-bg border border-line text-sm outline-none focus:border-accent transition-colors; }
+
+/* Açık temada renkli metinlerin kontrastı */
+[data-theme='light'] .text-amber-400 { color: rgb(180 83 9); }
+[data-theme='light'] .text-red-400 { color: rgb(220 38 38); }
+[data-theme='light'] .text-emerald-400 { color: rgb(5 150 105); }
+[data-theme='light'] .text-sky-300 { color: rgb(2 132 199); }
+[data-theme='light'] .text-red-300 { color: rgb(220 38 38); }
+[data-theme='light'] .text-accent { color: rgb(var(--accent)); }

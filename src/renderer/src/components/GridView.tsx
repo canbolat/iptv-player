@@ -56,12 +56,12 @@ export default function GridView({ kind }: { kind: 'vod' | 'series' }) {
       </div>
       <div ref={ref} className="flex-1 overflow-y-auto px-2">
         {items.length === 0 && (
-          <div className="p-8 text-center text-sm text-slate-500 max-w-md mx-auto">
+          <div className="p-8 text-center text-sm text-ink/45 max-w-md mx-auto">
             {kind === 'vod' ? 'Bu kaynakta film bulunamadı.' : 'Bu kaynakta dizi bulunamadı.'}
             {' '}M3U listelerinde film/dizi; adres yolundaki /movie/ ve /series/ ifadelerinden, video dosya uzantısından (.mp4, .mkv) ve "S01E02" gibi bölüm adlarından otomatik ayrılır.
           </div>
         )}
-        {items.length > 0 && list.length === 0 && <div className="p-8 text-center text-sm text-slate-500">Sonuç yok.</div>}
+        {items.length > 0 && list.length === 0 && <div className="p-8 text-center text-sm text-ink/45">Sonuç yok.</div>}
         <div style={{ height: v.getTotalSize(), position: 'relative' }}>
           {v.getVirtualItems().map((row) => (
             <div key={row.index} className="absolute inset-x-0 flex gap-2 py-1"
@@ -69,12 +69,12 @@ export default function GridView({ kind }: { kind: 'vod' | 'series' }) {
               {list.slice(row.index * cols, row.index * cols + cols).map((it) => (
                 <div key={it.id} className="rounded-lg bg-panel border border-line hover:border-accent cursor-pointer overflow-hidden flex flex-col"
                   style={{ width: CARD_W - 8 }} onClick={() => setSel(it)}>
-                  <div className="h-[220px] flex items-center justify-center bg-black/40">
+                  <div className="h-[220px] flex items-center justify-center bg-ink/10">
                     {it.logo ? <Poster src={it.logo} name={it.name} /> : <Logo name={it.name} size={80} />}
                   </div>
                   <div className="p-2 min-w-0">
                     <div className="text-sm truncate" title={it.name}>{it.name}</div>
-                    <div className="text-xs text-slate-500 flex justify-between">
+                    <div className="text-xs text-ink/45 flex justify-between">
                       <span className="truncate">{it.group}</span>
                       {it.rating && Number(it.rating) > 0 && <span className="text-amber-400 ml-1">★ {it.rating}</span>}
                     </div>

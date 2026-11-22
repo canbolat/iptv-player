@@ -149,3 +149,16 @@ test('catch-up: başlangıç biçimi ve süre', () => {
   assert.equal(catchupMinutes(10, 10), 1)
   assert.equal(catchupPath('u', 'p', 60, '2024-05-01:20-00', 7), '/timeshift/u/p/60/2024-05-01:20-00/7.ts')
 })
+
+import { buildFfmpegArgs } from '../src/shared/ffmpeg.ts'
+
+test('ffmpeg: komut satırı', () => {
+  const a = buildFfmpegArgs('http://h/live/1.ts', 'UA/1', 'copy')
+  assert.ok(a.includes('-reconnect') && a.includes('UA/1'))
+  assert.deepEqual(a.slice(a.indexOf('-c:v'), a.indexOf('-c:v') + 2), ['-c:v', 'copy'])
+  assert.ok(a.includes('aac') && a[a.length - 1] === 'pipe:1')
+  const b = buildFfmpegArgs('http://h/x.m3u8', 'UA', 'transcode')
+  assert.ok(b.includes('libx264'))
+  const c = buildFfmpegArgs('rtmp://h/x', 'UA', 'copy')
+  assert.ok(!c.includes('-reconnect'))
+})

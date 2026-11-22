@@ -26,10 +26,10 @@ export default function RecordDialog({ title, onStart, onSchedule, onClose }: {
   const invalid = mode === 'later' && (!Number.isFinite(startAt) || startAt < Date.now() - 30_000)
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4" onMouseDown={onClose}>
-      <div className="w-full max-w-md bg-panel border border-line rounded-xl p-5 space-y-4" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onMouseDown={onClose}>
+      <div className="w-full max-w-md bg-panel border border-line rounded-xl shadow-2xl modal-in p-5 space-y-4" onMouseDown={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-semibold">Kayıt</h2>
-        <div className="text-sm text-slate-400 truncate">{title}</div>
+        <div className="text-sm text-ink/60 truncate">{title}</div>
 
         <div className="flex gap-2">
           {([['now', 'Şimdi başlat'], ['later', 'Zamanlı başlat']] as const).map(([m, label]) => (
@@ -40,13 +40,13 @@ export default function RecordDialog({ title, onStart, onSchedule, onClose }: {
 
         {mode === 'later' && (
           <div className="space-y-1">
-            <label className="text-sm text-slate-400">Başlangıç zamanı</label>
+            <label className="text-sm text-ink/60">Başlangıç zamanı</label>
             <input className="field" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
           </div>
         )}
 
         <div>
-          <div className="text-sm text-slate-400 mb-2">Süre</div>
+          <div className="text-sm text-ink/60 mb-2">Süre</div>
           <div className="flex flex-wrap gap-2">
             {PRESETS.map(([m, label]) => (
               <button key={m} onClick={() => { setMinutes(m); setCustom('') }}
@@ -54,13 +54,13 @@ export default function RecordDialog({ title, onStart, onSchedule, onClose }: {
             ))}
           </div>
           <div className="flex items-center gap-2 text-sm mt-2">
-            <span className="text-slate-400">veya özel:</span>
+            <span className="text-ink/60">veya özel:</span>
             <input className="field !w-24" type="number" min={1} max={1440} placeholder="dk" value={custom} onChange={(e) => setCustom(e.target.value)} />
-            <span className="text-slate-400">dakika</span>
+            <span className="text-ink/60">dakika</span>
           </div>
         </div>
 
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-ink/45">
           {end ? `Kayıt saat ${end} civarında otomatik durur. ` : 'Kayıt siz durdurana kadar sürer. '}
           {mode === 'later'
             ? 'Zamanlı kayıt için uygulama açık (veya tepside) ve bilgisayar uyanık olmalı; kaçırılan kayıtlar listede işaretlenir.'

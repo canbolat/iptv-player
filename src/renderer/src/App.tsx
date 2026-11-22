@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import { shallow } from 'zustand/shallow'
 import type { Profile } from '../../shared/types'
 import { Tab, useStore } from './store'
 import { applyLanguage } from './i18nDom'
+import { applyTheme } from './theme'
 import CatchupDialog from './components/CatchupDialog'
 import ContinueView from './components/ContinueView'
 import DiagnosticsView from './components/DiagnosticsView'
@@ -32,13 +34,33 @@ const NAV: { tab: Tab; label: string; icon: string }[] = [
 ]
 
 export default function App() {
-  const s = useStore()
+  // Yalnızca arayüzü ilgilendiren alanlara abone ol: kayıt ilerlemesi, tanılama gibi sık değişen
+  // veriler tüm uygulamayı (ve oynatıcıyı) gereksiz yere yeniden çizmesin.
+  const st = useStore((x) => ({
+    ready: x.ready, profiles: x.profiles, activeId: x.activeId, settings: x.settings, tab: x.tab, mini: x.mini,
+    playing: x.playing, playError: x.playError, pinSet: x.pinSet, hasLocks: x.locks.length > 0, unlocked: x.unlocked,
+    recDialog: x.recDialog,
+    activeRec: x.recordings.filter((r) => r.type === 'record' && r.status === 'recording').length,
+    activeDl: x.recordings.filter((r) => r.type === 'download' && (r.status === 'recording' || r.status === 'queued')).length,
+    isRec: x.playing ? x.isRecording(x.playing.url) : false
+  }), shallow)
+  const s = { ...useStore.getState(), ...st }
   const [dialog, setDialog] = useState<{ profile?: Profile } | null>(null)
   const [catchup, setCatchup] = useState(false)
   const [pinDlg, setPinDlg] = useState(false)
 
   useEffect(() => { s.init() }, [])
   useEffect(() => { if (s.ready) applyLanguage(s.settings.language) }, [s.ready, s.settings.language])
+  useEffect(() => {
+    if (!s.ready) return
+    const { theme, accent } = s.settings
+    applyTheme(theme, accent)
+    if (theme !== 'system') return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const on = () => applyTheme(theme, accent)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [s.ready, s.settings.theme, s.settings.accent])
   useEffect(() => {
     s.refreshRecordings()
     s.refreshSchedules()
@@ -47,8 +69,8 @@ export default function App() {
   }, [])
 
   const profile = s.profiles.find((p) => p.id === s.activeId)
-  const activeRec = s.recordings.filter((r) => r.type === 'record' && r.status === 'recording').length
-  const activeDl = s.recordings.filter((r) => r.type === 'download' && (r.status === 'recording' || r.status === 'queued')).length
+  const activeRec = st.activeRec
+  const activeDl = st.activeDl
   const p = s.playing
   const live = p?.target.kind === 'live'
   const showPlayer = !!p && (s.mini || p.overlay || (live && s.tab === 'live'))
@@ -86,12 +108,12 @@ export default function App() {
         <nav className="flex-1 px-2 space-y-1 overflow-y-auto">
           {NAV.map((n) => (
             <button key={n.tab} onClick={() => s.setTab(n.tab)}
-              className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center gap-2 ${s.tab === n.tab ? 'bg-accent/25 text-white' : 'text-slate-400 hover:bg-white/5'}`}>
+              className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center gap-2 ${s.tab === n.tab ? 'bg-accent/20 text-ink font-medium shadow-[inset_2px_0_0_rgb(var(--accent))]' : 'text-ink/60 hover:bg-ink/5'}`}>
               <span>{n.icon}</span>{n.label}
             </button>
           ))}
         </nav>
-        {s.pinSet && s.locks.length > 0 && (
+        {s.pinSet && st.hasLocks && (
           <div className="mx-2 mb-2">
             {s.unlocked
               ? <button className="btn w-full text-xs" onClick={() => s.lock()}>🔓 Tekrar kilitle</button>
@@ -112,7 +134,7 @@ export default function App() {
             )}
           </div>
         )}
-        <div className="p-3 text-[11px] text-slate-600">Boşluk: oynat · F: tam ekran · M: sessiz · ↑↓: kanal</div>
+        <div className="p-3 text-[11px] text-ink/30">Boşluk: oynat · F: tam ekran · M: sessiz · ↑↓: kanal</div>
       </aside>
 
       {/* İçerik */}
@@ -121,7 +143,7 @@ export default function App() {
           <div className="h-full flex flex-col items-center justify-center gap-4 text-center p-8">
             <div className="text-3xl">📡</div>
             <div className="text-lg font-medium">Başlamak için bir profil ekleyin</div>
-            <div className="text-sm text-slate-500 max-w-md">M3U/M3U8 bağlantısı, yerel playlist dosyası veya Xtream Codes hesabı ekleyebilirsiniz. Uygulama hazır içerik sağlamaz.</div>
+            <div className="text-sm text-ink/45 max-w-md">M3U/M3U8 bağlantısı, yerel playlist dosyası veya Xtream Codes hesabı ekleyebilirsiniz. Uygulama hazır içerik sağlamaz.</div>
             <button className="btn-primary" onClick={() => setDialog({})}>Profil ekle</button>
           </div>
         ) : (
@@ -129,7 +151,7 @@ export default function App() {
             {s.tab === 'live' && (
               <div className="h-full flex">
                 <div className="border-r border-line" style={{ width: LIST_W }}><LiveView /></div>
-                <div className="flex-1 flex items-center justify-center text-slate-600 text-sm">
+                <div className="flex-1 flex items-center justify-center text-ink/30 text-sm">
                   {s.playError ? <span className="text-red-400">{s.playError}</span> : 'Bir kanal seçin'}
                 </div>
               </div>
@@ -165,7 +187,9 @@ export default function App() {
             engine={s.settings.engine}
             bufferSec={s.settings.bufferSec}
             prebufferSec={s.settings.prebufferSec}
-            recording={s.isRecording(p.url)}
+            pipeline={s.settings.pipeline}
+            ffmpegVideo={s.settings.ffmpegVideo}
+            recording={st.isRec}
             overlay={p.overlay}
             onRecord={live ? () => (s.isRecording(p.url) ? s.stopRecord() : s.setRecDialog(p.target)) : undefined}
             onCatchup={live && p.target.archive ? () => setCatchup(true) : undefined}

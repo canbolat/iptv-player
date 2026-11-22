@@ -1,6 +1,6 @@
 import type {
   CatchupEntry, Detail, EpgEntry, EpgNowNext, HistoryEntry, Item, Kind, PlayTarget, Profile, ProfileInput,
-  RecInfo, Schedule, Settings, UpdateStatus
+  AppMetrics, RecInfo, Schedule, Settings, UpdateStatus
 } from './types'
 
 export interface Api {
@@ -51,6 +51,9 @@ export interface Api {
   checkUpdate(): Promise<UpdateStatus>
   downloadUpdate(): Promise<void>
   installUpdate(): Promise<void>
+  proxyStart(url: string, video: 'copy' | 'transcode', preSec: number): Promise<{ id: string; url: string }>
+  proxyStop(id: string): Promise<void>
+  metrics(): Promise<AppMetrics>
   onUpdateStatus(cb: (s: UpdateStatus) => void): () => void
 }
 

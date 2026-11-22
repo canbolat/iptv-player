@@ -20,18 +20,18 @@ export default function EpgInfo({ tvgId }: { tvgId?: string }) {
   if (!d.now && !d.next) return null
   const pct = d.now ? Math.min(100, Math.max(0, ((Date.now() - d.now.start) / (d.now.stop - d.now.start)) * 100)) : 0
   return (
-    <div className="mt-1 text-xs text-slate-300 space-y-1">
+    <div className="mt-1 text-xs text-ink/80 space-y-1">
       {d.now && (
         <>
           <div className="truncate">
             <span className="text-accent font-medium">Şimdi</span> {hhmm(d.now.start)}–{hhmm(d.now.stop)} · {d.now.title}
           </div>
-          <div className="h-1 rounded bg-white/15 overflow-hidden max-w-sm">
+          <div className="h-1 rounded bg-ink/15 overflow-hidden max-w-sm">
             <div className="h-full bg-accent" style={{ width: `${pct}%` }} />
           </div>
         </>
       )}
-      {d.next && <div className="truncate text-slate-400">Sonra {hhmm(d.next.start)} · {d.next.title}</div>}
+      {d.next && <div className="truncate text-ink/60">Sonra {hhmm(d.next.start)} · {d.next.title}</div>}
     </div>
   )
 }

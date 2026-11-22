@@ -16,6 +16,8 @@ export default function LiveView() {
   const favs = useStore((s) => s.favs)
   const playing = useStore((s) => s.playing)
   const notice = useStore((s) => s.notice)
+  const compact = useStore((s) => s.settings.density === 'compact')
+  const rowH = compact ? 44 : 56
   const { play, toggleFav, loadKind, setVisibleLive, setRecDialog } = useStore.getState()
 
   const [q, setQ] = useState('')
@@ -42,7 +44,8 @@ export default function LiveView() {
 
   useEffect(() => { setVisibleLive(list) }, [list])
 
-  const v = useVirtualizer({ count: list.length, getScrollElement: () => parentRef.current, estimateSize: () => 56, overscan: 12 })
+  const v = useVirtualizer({ count: list.length, getScrollElement: () => parentRef.current, estimateSize: () => rowH, overscan: 12 })
+  useEffect(() => { v.measure() }, [rowH])
 
   if (loading && items.length === 0) return <Spinner label="Kanallar yükleniyor…" />
   if (error && items.length === 0) return <ErrorBox message={error} onRetry={() => loadKind('live', true)} />
@@ -60,24 +63,24 @@ export default function LiveView() {
         {notice && <div className="text-xs text-amber-400">{notice}</div>}
       </div>
       <div ref={parentRef} className="flex-1 overflow-y-auto">
-        {list.length === 0 && <div className="p-6 text-sm text-slate-500 text-center">Sonuç yok.</div>}
+        {list.length === 0 && <div className="p-6 text-sm text-ink/45 text-center">Sonuç yok.</div>}
         <div style={{ height: v.getTotalSize(), position: 'relative' }}>
           {v.getVirtualItems().map((row) => {
             const it = list[row.index]
             const active = playing?.itemId === it.id
             return (
               <div key={it.id}
-                className={`absolute inset-x-0 flex items-center gap-3 px-3 cursor-pointer ${active ? 'bg-accent/25' : 'hover:bg-white/5'}`}
+                className={`absolute inset-x-0 flex items-center gap-3 px-3 cursor-pointer ${active ? 'bg-accent/25' : 'hover:bg-ink/5'}`}
                 style={{ height: row.size, transform: `translateY(${row.start}px)` }}
                 onClick={() => play(liveTarget(it), { itemId: it.id, overlay: false })}>
-                <Logo src={it.logo} name={it.name} size={38} />
+                <Logo src={it.logo} name={it.name} size={compact ? 30 : 38} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm">{it.name}</div>
-                  <div className="truncate text-xs text-slate-500">{it.group}</div>
+                  <div className="truncate text-xs text-ink/45">{it.group}</div>
                 </div>
-                <button className="text-sm text-slate-600 hover:text-slate-300" title="Zamanlı kayıt"
+                <button className="text-sm text-ink/30 hover:text-ink/80" title="Zamanlı kayıt"
                   onClick={(e) => { e.stopPropagation(); setRecDialog(liveTarget(it)) }}>⏰</button>
-                <button className={`text-lg ${favSet.has(it.id) ? 'text-amber-400' : 'text-slate-600 hover:text-slate-300'}`}
+                <button className={`text-lg ${favSet.has(it.id) ? 'text-amber-400' : 'text-ink/30 hover:text-ink/80'}`}
                   onClick={(e) => { e.stopPropagation(); toggleFav(it.id) }}>★</button>
               </div>
             )

@@ -26,13 +26,13 @@ export default function RecordingsView({ type }: { type: 'record' | 'download' }
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {isRec && schedules.length > 0 && (
           <div className="space-y-2 pb-2">
-            <div className="text-xs uppercase tracking-wide text-slate-500">Zamanlanmış kayıtlar</div>
+            <div className="text-xs uppercase tracking-wide text-ink/45">Zamanlanmış kayıtlar</div>
             {schedules.map((sc) => (
               <div key={sc.id} className="p-3 rounded-lg bg-panel border border-line flex items-center gap-3">
                 <span className="text-lg">{sc.status === 'pending' ? '⏰' : sc.status === 'started' ? '✅' : sc.status === 'missed' ? '⚠️' : '❌'}</span>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm truncate">{sc.title}</div>
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-ink/45">
                     {new Date(sc.startAt).toLocaleString('tr-TR')} · {sc.minutes ? `${sc.minutes} dk` : 'elle durdurulacak'} ·{' '}
                     {{ pending: 'bekliyor', started: 'başladı', missed: 'kaçırıldı (uygulama kapalıydı)', error: 'hata' }[sc.status]}
                   </div>
@@ -44,7 +44,7 @@ export default function RecordingsView({ type }: { type: 'record' | 'download' }
           </div>
         )}
         {list.length === 0 && (
-          <div className="text-sm text-slate-500 max-w-lg">
+          <div className="text-sm text-ink/45 max-w-lg">
             {isRec
               ? 'Kayıt yok. Canlı bir kanal izlerken oynatıcıdaki ⏺ Kaydet düğmesine basın; süreyi seçebilir veya elle durdurabilirsiniz. Kayıtlar .ts dosyasıdır; VLC, mpv veya Windows\'un varsayılan oynatıcısıyla açılır.'
               : 'İndirme yok. Film veya dizi ayrıntısında ⬇ İndir düğmesini kullanın. Aynı anda en fazla 2 indirme yürür, diğerleri sırada bekler.'}
@@ -56,10 +56,10 @@ export default function RecordingsView({ type }: { type: 'record' | 'download' }
           return (
             <div key={r.id} className="p-3 rounded-lg bg-panel border border-line space-y-2">
               <div className="flex items-center gap-3">
-                <div className={`w-3 h-3 rounded-full shrink-0 ${active ? 'bg-red-500 animate-pulse' : r.status === 'error' ? 'bg-amber-500' : r.status === 'done' ? 'bg-emerald-500' : 'bg-slate-500'}`} />
+                <div className={`w-3 h-3 rounded-full shrink-0 ${active ? 'bg-red-500 animate-pulse' : r.status === 'error' ? 'bg-amber-500' : r.status === 'done' ? 'bg-emerald-500' : 'bg-ink/40'}`} />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm truncate" title={r.title}>{r.title}</div>
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-ink/45">
                     {new Date(r.startedAt).toLocaleString('tr-TR')}
                     {r.status === 'queued' ? ' · sırada' : ` · ${fmtDur((r.endedAt ?? Date.now()) - r.startedAt)} · ${fmtSize(r.bytes)}${r.total ? ` / ${fmtSize(r.total)}` : ''}`}
                     {active && isRec && (r.stopAt ? ` · ${hhmm(r.stopAt)}'de durur` : ' · elle durdurulacak')}
@@ -81,7 +81,7 @@ export default function RecordingsView({ type }: { type: 'record' | 'download' }
                 )}
               </div>
               {!isRec && active && r.total ? (
-                <div className="h-1.5 rounded bg-white/10"><div className="h-full rounded bg-accent" style={{ width: `${pct}%` }} /></div>
+                <div className="h-1.5 rounded bg-ink/10"><div className="h-full rounded bg-accent" style={{ width: `${pct}%` }} /></div>
               ) : null}
               {r.error && <div className="text-xs text-red-400 break-words">{r.error}</div>}
             </div>

@@ -111,6 +111,21 @@ export const EN: Record<string, string> = {
     'Automatic updates require releases to be published on GitHub Releases from a public repository.',
   'Önbellek': 'Cache', 'EPG ve ağ önbelleğini temizle': 'Clear EPG and network cache', 'Önbellek temizlendi': 'Cache cleared',
   'Kaydedildi': 'Saved',
+  'Oynatma motoru (dahili oynatıcı)': 'Playback engine (built-in player)',
+  'Hızlı (tarayıcı: mpegts.js / hls.js)': 'Fast (browser: mpegts.js / hls.js)',
+  'Kararlı (ffmpeg ara katmanı)': 'Stable (ffmpeg layer)',
+  'Video: otomatik (önce kopyala, olmazsa yeniden kodla)': 'Video: automatic (copy first, re-encode if needed)',
+  'Video: kopyala (hafif, H.264 için)': 'Video: copy (light, for H.264)',
+  'Video: yeniden kodla (HEVC/MPEG-2 için, işlemciyi yorar)': 'Video: re-encode (for HEVC/MPEG-2, uses CPU)',
+  'Kararlı mod yayını ffmpeg ile tarayıcının çözebildiği biçime çevirir: AC3/MP2 gibi sesleri çözer, bozuk akışları ve kopmaları yönetir, başlangıçta biriktirme süresi kadar tampon verir. Başlangıç birkaç saniye gecikir, yalnızca canlı yayınlarda kullanılır. Oynatıcıda ⓘ (veya I tuşu) ile teknik bilgi panelini açıp donmanın nedenine (ağ, çözme, ses codec\'i) bakabilirsiniz.':
+    'Stable mode converts the stream with ffmpeg into a format the browser can decode: it handles AC3/MP2 audio, damaged streams and drops, and gives a buffer equal to the pre-buffer time at start. Start is delayed by a few seconds and it is only used for live streams. Open the technical info panel with ⓘ (or the I key) in the player to see the cause of freezing (network, decoding, audio codec).',
+  'Teknik bilgi (I)': 'Technical info (I)', 'Veri toplanıyor…': 'Collecting data…',
+  'Sık takılma algılandı. Ayarlar → Oynatıcı → Oynatma motoru bölümünde "Kararlı (ffmpeg)" modunu deneyin; ⓘ düğmesi teknik bilgiyi gösterir.':
+    'Frequent stalling detected. Try "Stable (ffmpeg)" under Settings → Player → Playback engine; the ⓘ button shows technical info.',
+  'Görünüm': 'Appearance', 'Tema': 'Theme', 'Koyu': 'Dark', 'AMOLED siyah': 'AMOLED black', 'Açık': 'Light',
+  'Sistemi izle': 'Follow system', 'Vurgu rengi': 'Accent color', 'Liste yoğunluğu': 'List density', 'Normal': 'Normal',
+  'Sıkışık (daha fazla kanal görünür)': 'Compact (shows more channels)', 'İndigo': 'Indigo', 'Mavi': 'Blue',
+  'Gök mavisi': 'Sky blue', 'Zümrüt': 'Emerald', 'Gül': 'Rose', 'Kehribar': 'Amber', 'Mor': 'Violet',
   // Store mesajları
   'Playlist içinde oynatılabilir kanal bulunamadı.': 'No playable channels found in the playlist.',
   'Harici oynatıcı açılamadı': 'Could not open the external player',

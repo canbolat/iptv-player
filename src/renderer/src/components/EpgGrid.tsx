@@ -73,7 +73,7 @@ export default function EpgGrid() {
   for (let t = ws; t < we; t += 1_800_000) ticks.push(t)
 
   if (items.length === 0) {
-    return <div className="h-full flex items-center justify-center p-8 text-center text-sm text-slate-500 max-w-md mx-auto">
+    return <div className="h-full flex items-center justify-center p-8 text-center text-sm text-ink/45 max-w-md mx-auto">
       Rehber için EPG kimliği (tvg-id) olan canlı kanallar gerekir. Profile bir EPG (XMLTV) adresi eklediğinizden emin olun.
     </div>
   }
@@ -95,11 +95,11 @@ export default function EpgGrid() {
       <div ref={ref} className="flex-1 overflow-auto relative">
         {/* Zaman başlığı */}
         <div className="sticky top-0 z-20 flex bg-panel border-b border-line" style={{ width: totalW, height: 28 }}>
-          <div className="sticky left-0 z-30 bg-panel border-r border-line text-xs text-slate-500 flex items-center px-3" style={{ width: LEFT_W }}>
+          <div className="sticky left-0 z-30 bg-panel border-r border-line text-xs text-ink/45 flex items-center px-3" style={{ width: LEFT_W }}>
             {new Date(ws).toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short' })}
           </div>
           {ticks.map((t) => (
-            <div key={t} className="text-xs text-slate-400 flex items-center border-l border-line/60 pl-1" style={{ width: 30 * PX_PER_MIN }}>
+            <div key={t} className="text-xs text-ink/60 flex items-center border-l border-line/60 pl-1" style={{ width: 30 * PX_PER_MIN }}>
               {HHMM(t)}
             </div>
           ))}
@@ -114,7 +114,7 @@ export default function EpgGrid() {
             const progs = data[it.tvgId!] ?? []
             return (
               <div key={it.id} className="absolute left-0 border-b border-line/60" style={{ top: row.start, height: ROW_H, width: totalW }}>
-                <div className="sticky left-0 z-10 flex items-center gap-2 px-3 bg-bg border-r border-line h-full cursor-pointer hover:bg-white/5"
+                <div className="sticky left-0 z-10 flex items-center gap-2 px-3 bg-bg border-r border-line h-full cursor-pointer hover:bg-ink/5"
                   style={{ width: LEFT_W }} onClick={() => play(liveTarget(it), { itemId: it.id, overlay: true })}>
                   <Logo src={it.logo} name={it.name} size={32} />
                   <div className="min-w-0 text-sm truncate" title={it.name}>{it.name}</div>
@@ -127,11 +127,11 @@ export default function EpgGrid() {
                   const live = p.start <= now && now < p.stop
                   return (
                     <div key={p.start}
-                      className={`absolute top-1 bottom-1 rounded-md px-2 py-1 text-xs overflow-hidden cursor-pointer border ${live ? 'bg-accent/30 border-accent' : p.stop < now ? 'bg-white/5 border-line text-slate-500' : 'bg-white/10 border-line hover:bg-white/15'}`}
+                      className={`absolute top-1 bottom-1 rounded-md px-2 py-1 text-xs overflow-hidden cursor-pointer border ${live ? 'bg-accent/30 border-accent' : p.stop < now ? 'bg-ink/5 border-line text-ink/45' : 'bg-ink/10 border-line hover:bg-ink/15'}`}
                       style={{ left, width }} title={`${HHMM(p.start)}–${HHMM(p.stop)} ${p.title}${p.desc ? '\n\n' + p.desc : ''}`}
                       onClick={() => play(liveTarget(it), { itemId: it.id, overlay: true })}>
                       <div className="truncate font-medium">{p.title}</div>
-                      <div className="truncate text-slate-400">{HHMM(p.start)}–{HHMM(p.stop)}</div>
+                      <div className="truncate text-ink/60">{HHMM(p.start)}–{HHMM(p.stop)}</div>
                     </div>
                   )
                 })}
@@ -140,7 +140,7 @@ export default function EpgGrid() {
           })}
         </div>
         {fetched && !anyData && (
-          <div className="sticky left-0 p-6 text-sm text-slate-500">Bu aralık için EPG verisi yok. Profilde EPG adresi tanımlı mı ve yüklendi mi kontrol edin.</div>
+          <div className="sticky left-0 p-6 text-sm text-ink/45">Bu aralık için EPG verisi yok. Profilde EPG adresi tanımlı mı ve yüklendi mi kontrol edin.</div>
         )}
       </div>
     </div>

@@ -281,7 +281,8 @@ export const useStore = create<S>((set, get) => ({
   },
 
   async refreshRecordings() {
-    set({ recordings: await window.api.listRecordings() })
+    const r = await window.api.listRecordings()
+    if (JSON.stringify(r) !== JSON.stringify(get().recordings)) set({ recordings: r })
   },
 
   async startRecord(minutes, target) {
@@ -300,7 +301,10 @@ export const useStore = create<S>((set, get) => ({
 
   setRecDialog(t) { set({ recDialog: t }) },
 
-  async refreshSchedules() { set({ schedules: await window.api.listSchedules() }) },
+  async refreshSchedules() {
+    const r = await window.api.listSchedules()
+    if (JSON.stringify(r) !== JSON.stringify(get().schedules)) set({ schedules: r })
+  },
 
   async schedule(target, startAt, minutes) {
     const { activeId } = get()

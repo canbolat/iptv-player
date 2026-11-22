@@ -49,6 +49,9 @@ const api: Api = {
   checkUpdate: call('update:check') as Api['checkUpdate'],
   downloadUpdate: call('update:download') as Api['downloadUpdate'],
   installUpdate: call('update:install') as Api['installUpdate'],
+  proxyStart: call('proxy:start') as Api['proxyStart'],
+  proxyStop: call('proxy:stop') as Api['proxyStop'],
+  metrics: call('app:metrics') as Api['metrics'],
   onUpdateStatus: (cb) => {
     const h = (_e: unknown, s: Parameters<typeof cb>[0]) => cb(s)
     ipcRenderer.on('update:status', h)

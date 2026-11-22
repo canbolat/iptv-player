@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, net, protocol, session, shell } from 'electron'
 import { pathToFileURL } from 'url'
 import { unlink } from 'fs/promises'
 import { spawn } from 'child_process'
@@ -19,6 +19,7 @@ import {
 import { addSchedule, listSchedules, pendingCount, removeSchedule, startScheduler } from './scheduler'
 import { getLocks, hasPin, removePin, setLocks, setPin, verifyPin } from './pin'
 import { appIcon, hideToTray } from './tray'
+import { startProxy, stopAllProxies, stopProxy } from './transcode'
 import { checkUpdate, downloadUpdate, getUpdateStatus, initUpdater, installUpdate } from './updater'
 import { clearStalkerSession, loadStalker, stalkerLink } from './stalker'
 import { isValidMac, normalizeMac } from '../shared/stalker'
@@ -29,6 +30,13 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'iptvfile', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: true } }
 ])
 
+// Video akıcılığı: GPU kara listesini atla, pencere örtülünce/arka planda oynatmayı kısma
+app.commandLine.appendSwitch('ignore-gpu-blocklist')
+app.commandLine.appendSwitch('enable-gpu-rasterization')
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
+app.commandLine.appendSwitch('disable-renderer-backgrounding')
+app.commandLine.appendSwitch('disable-background-timer-throttling')
+
 // Donanım hızlandırma ayarı uygulama hazır olmadan uygulanmalı
 if (!getSettings().hwAccel) app.disableHardwareAcceleration()
 
@@ -38,14 +46,27 @@ let savedBounds: Electron.Rectangle | null = null
 let quitting = false
 const quitApp = () => { quitting = true; app.quit() }
 
+function applyNativeTheme(t: Settings['theme']) {
+  nativeTheme.themeSource = t === 'light' ? 'light' : t === 'system' ? 'system' : 'dark'
+}
+
+function windowBg(t: Settings['theme']): string {
+  if (t === 'light') return '#f2f4f8'
+  if (t === 'amoled') return '#000000'
+  if (t === 'system') return nativeTheme.shouldUseDarkColors ? '#0b0d12' : '#f2f4f8'
+  return '#0b0d12'
+}
+
 function createWindow() {
+  applyNativeTheme(getSettings().theme)
   win = new BrowserWindow({
     width: 1360, height: 840, minWidth: 900, minHeight: 560,
-    backgroundColor: '#0b0d12', autoHideMenuBar: true, title: 'IPTV Player', icon: appIcon(),
+    backgroundColor: windowBg(getSettings().theme), autoHideMenuBar: true, title: 'IPTV Player', icon: appIcon(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true, nodeIntegration: false, sandbox: true,
-      autoplayPolicy: 'no-user-gesture-required'
+      autoplayPolicy: 'no-user-gesture-required',
+      backgroundThrottling: false
     }
   })
   win.webContents.on('will-navigate', (e, url) => {
@@ -73,6 +94,7 @@ function createWindow() {
 function isRemote(url: string) {
   if (!/^https?:/i.test(url)) return false
   if (DEV_URL && url.startsWith(DEV_URL)) return false
+  if (/^https?:\/\/(127\.0\.0\.1|localhost)[:/]/i.test(url)) return false
   return true
 }
 
@@ -81,7 +103,7 @@ function setupSession() {
   const types = new Set(['xhr', 'media', 'other'])
 
   // Yayın istekleri için User-Agent (yalnızca uzak xhr/media istekleri)
-  ses.webRequest.onBeforeSendHeaders((d, cb) => {
+  ses.webRequest.onBeforeSendHeaders({ urls: ['http://*/*', 'https://*/*'] }, (d, cb) => {
     const h = d.requestHeaders
     if (isRemote(d.url) && types.has(d.resourceType)) h['User-Agent'] = getSettings().userAgent
     cb({ requestHeaders: h })
@@ -185,6 +207,10 @@ function setupIpc() {
   handle('settings:set', (s: Partial<Settings>) => {
     const next = { ...getSettings(), ...s }
     store.set('settings', next)
+    if (s.theme) {
+      applyNativeTheme(next.theme)
+      win?.setBackgroundColor(windowBg(next.theme))
+    }
     return next
   })
 
@@ -295,6 +321,18 @@ function setupIpc() {
   handle('locks:set', (profileId: string, groups: string[], pin?: string) =>
     setLocks(String(profileId), Array.isArray(groups) ? groups : [], pin))
 
+  handle('proxy:start', (url: string, video: 'copy' | 'transcode', preSec: number) =>
+    startProxy(String(url), video === 'transcode' ? 'transcode' : 'copy', Number(preSec)))
+  handle('proxy:stop', (id: string) => stopProxy(String(id)))
+  handle('app:metrics', () => {
+    const m = app.getAppMetrics()
+    const sum = (types: string[]) => Math.round(m.filter((x) => types.includes(x.type)).reduce((a, x) => a + x.cpu.percentCPUUsage, 0))
+    const g = app.getGPUFeatureStatus() as unknown as Record<string, string>
+    return {
+      cpu: { renderer: sum(['Tab']), gpu: sum(['GPU']), main: sum(['Browser']), other: sum(['Utility', 'Zygote', 'Unknown']) },
+      videoDecode: String(g.video_decode ?? '?'), gpuCompositing: String(g.gpu_compositing ?? '?')
+    }
+  })
   handle('app:version', () => app.getVersion())
   handle('update:status', () => getUpdateStatus())
   handle('update:check', () => checkUpdate())
@@ -321,7 +359,7 @@ app.whenReady().then(() => {
   if (getSettings().autoUpdate) setTimeout(() => { checkUpdate() }, 20_000)
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
-app.on('before-quit', () => { quitting = true; stopAll() })
+app.on('before-quit', () => { quitting = true; stopAll(); stopAllProxies() })
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
 
 // Harici bağlantıları sistem tarayıcısında aç (yalnızca https)

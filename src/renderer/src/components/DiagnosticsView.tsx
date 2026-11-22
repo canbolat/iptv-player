@@ -26,13 +26,13 @@ export default function DiagnosticsView() {
       </div>
       <div className="flex-1 overflow-auto p-4">
         {rows.length === 0 ? (
-          <div className="text-sm text-slate-500 max-w-lg">
+          <div className="text-sm text-ink/45 max-w-lg">
             Henüz veri yok. Kanalları izledikçe burada her kanalın kaç kez takıldığı, yeniden bağlandığı ve hangi motorla açıldığı görünür.
             En çok takılan kanallar üstte listelenir; hepsi aynı sağlayıcıdan ve aynı anda takılıyorsa sorun büyük olasılıkla bağlantı veya sağlayıcıdadır.
           </div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="text-left text-slate-500 text-xs">
+            <thead className="text-left text-ink/45 text-xs">
               <tr><th className="py-2 pr-4">Kanal</th><th className="pr-4">Motor</th><th className="pr-4">İzleme</th><th className="pr-4">Takılma</th>
                 <th className="pr-4">Yeniden bağlanma</th><th className="pr-4">Düşen kare</th><th>Son hata</th></tr>
             </thead>
