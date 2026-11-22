@@ -1,6 +1,6 @@
 {
   "name": "iptv-player",
-  "version": "0.4.0",
+  "version": "0.6.0",
   "description": "Electron + React IPTV oynatıcı",
   "main": "./out/main/index.js",
   "author": "IPTV Player",
@@ -17,6 +17,7 @@
     "@tanstack/react-virtual": "^3.10.8",
     "electron-store": "^8.2.0",
     "electron-updater": "^6.3.9",
+    "ffmpeg-static": "^5.2.0",
     "hls.js": "^1.5.17",
     "mpegts.js": "^1.7.3",
     "react": "^18.3.1",

@@ -20,7 +20,7 @@ npm install
 npm test
 npm run dist
 ```
-Çıktı: `release\IPTV Player-Setup-0.4.0.exe`
+Çıktı: `release\IPTV Player-Setup-0.6.0.exe`
 
 Notlar:
 - Kod imzası olmadığı için Windows SmartScreen "Bilinmeyen yayıncı" uyarısı verebilir. "Ek bilgi → Yine de çalıştır" ile açılır. Uyarısız dağıtım için kod imzalama sertifikası gerekir.
@@ -39,7 +39,16 @@ Notlar:
 - **Kayıt:** anında veya zamanlı başlatma, süreli/elle durdurma, kopunca yeniden bağlanma, tepsiye küçültme.
 - **İndirme:** film/dizi/sezon indirme, kuyruk, kaldığı yerden devam. Kayıt ve indirmeler uygulama içinde izlenebilir.
 - **Rehber (EPG ızgarası)**, **geçmiş yayın (Xtream catch-up)**, **ebeveyn kilidi (PIN)**, **tanılama ekranı**, **Türkçe/İngilizce**.
+- **Görünüm:** Koyu, AMOLED siyah, Açık ve sistemi izleyen tema; 7 vurgu rengi; liste yoğunluğu.
 - **Otomatik güncelleme:** aşağıya bakın.
+
+## Donma / takılma sorunları
+1. Oynatıcıda **ⓘ** düğmesine (veya **I** tuşuna) basın: tampon, indirme hızı, düşen kare, ses/video codec'i ve CPU/GPU kullanımı görünür.
+2. Ayarlar → Oynatıcı → **Oynatma motoru: Kararlı (ffmpeg)** yayını ffmpeg ile dönüştürüp oynatır (AC3/MP2 ses, bozuk akış, kopmalar için).
+3. Ayarlar → Akış tamponu: biriktirme 6–10 sn, ileri tampon 40–60 sn deneyin; Xtream biçimini .ts / .m3u8 arasında değiştirin.
+4. **Tanılama** sekmesindeki raporu kopyalayıp paylaşabilirsiniz.
+
+Not: ffmpeg ikilisi (`ffmpeg-static`, GPL lisanslı derleme) kurulum dosyasına ~70 MB ekler. Uygulamayı başkalarına dağıtacaksanız GPL yükümlülüklerini göz önünde bulundurun.
 
 ## Otomatik güncelleme
 Yalnızca GitHub Releases üzerinden ve **herkese açık (public)** bir depoyla çalışır (özel depo için jeton gerekir, uygulamaya gömülmez).

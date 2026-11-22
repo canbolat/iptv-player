@@ -39,6 +39,12 @@ Electron + React + TypeScript + Tailwind CSS ile yazılmış, karanlık temalı 
 - Tepsi/simge: `build/icon.*` ve `main/trayIcon.ts` (üretilmiş PNG). Güncelleme: `main/updater.ts` (electron-updater, GitHub Releases).
 - Yerel oynatma: `iptvfile://rec/<id>.<uzantı>` özel şeması (`main/index.ts`), yalnızca bilinen kayıt kimlikleri için dosya sunar.
 
+- Oynatma boru hatları: `native` (mpegts.js/hls.js) ve `ffmpeg` (`main/transcode.ts`: yerel 127.0.0.1 HTTP sunucusu + ffmpeg → parçalı MP4; yalnızca canlı yayın). Komut satırı `shared/ffmpeg.ts` içinde, testli. ffmpeg yolu `ffmpeg-static`, paketlemede `asarUnpack`.
+- Akıcılık: `main/index.ts` komut satırı anahtarları (GPU kara listesi, pencere örtülme/arka plan kısma kapalı), `backgroundThrottling: false`. App bileşeni yalnızca seçili store alanlarına abone olur (`shallow`); yeni sık değişen veriyi oraya ekleme.
+- Teknik bilgi paneli (Player ⓘ) ve `app:metrics` IPC'si donma tanısı içindir.
+
+- Tema: renkler CSS değişkenleriyle (`renderer/src/index.css`, `tailwind.config.js`). Arayüzde `slate-*`/`white`/`indigo-*` kullanma; `bg-bg`, `bg-panel`, `border-line`, `bg-accent` ve metin/yüzey için `ink` (örn. `text-ink/60`, `bg-ink/10`) kullan. Oynatıcı kapsayıcısı `data-theme="dark"` ile her temada koyu kalır. Tema `theme.ts` ile uygulanır (açılışta önbellekten, titremesiz); ana süreçte `nativeTheme` ve pencere arka planı da eşlenir.
+
 ## Bilinen sınırlar / yapılacaklar
 - MKV, HEVC, AC3/E-AC3 yerleşik oynatıcıda garanti değil → "Harici oynatıcıda aç".
 - Stalker gerçek bir portala karşı denenmedi; sağlayıcıya göre uç nokta/alan farkları olabilir.
